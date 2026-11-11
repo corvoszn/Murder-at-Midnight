@@ -8,9 +8,9 @@ Before changing systems, read [GDD.md](GDD.md) and [ARCHITECTURE.md](ARCHITECTUR
 
 ## Do not get ahead of approval
 
-The architecture is a proposal until the user says it is approved.
+Steps 1 to 4 are in the project. Do not start a later build step until the user asks for it.
 
-Do not create the Unreal project, C++ classes, Blueprints, or gameplay systems until that approval. Do not implement murder, roles, agendas, votes, the hunt, rats, or voice while documenting or adjusting the proposal.
+Do not create a second Unreal project. Do not implement murder, roles, agendas, votes, the hunt, rats, or voice unless that step was requested.
 
 After approval, build only the step the user names. The Unreal project already exists at `MurderAtMidnight/`. The default first step adds the missing match classes onto the first-person base. Do not create a second project. Do not fill those classes with murder, roles, or agendas in the same step. Leave the Horror and Shooter sample variants in place unless the user asks to remove them.
 
@@ -49,6 +49,12 @@ Prefer a component or a data asset over a new character subclass. Do not add a m
 - Rats cannot speak and cannot vote. They keep their agenda unless they disconnect or go idle.
 - There is no Mischief meter and no reputation score.
 - Game clues do not store the killer's player id.
+
+## In-engine work
+
+Do not spend repeated attempts on something the user can fix in the Unreal editor. Ask them to do that step. They can reparent a Blueprint, assign a class, change a default, compile, or press Play.
+
+Do not hand them hard Blueprint node work. Do not ask them to write C++ or to reason about C++. Explain the editor click in plain language, then continue from what they report.
 
 ## How to work
 

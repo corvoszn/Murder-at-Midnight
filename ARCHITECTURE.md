@@ -12,12 +12,13 @@ It is the first-person template, plus the template's Horror and Shooter variants
 
 What the project already has:
 
-- `AMurderAtMidnightGameMode`, an empty subclass of `AGameModeBase`. It is marked abstract. The constructor does not set a pawn or a controller.
-- `AMurderAtMidnightPlayerController`, which sets up Enhanced Input, touch controls, and the camera manager.
+- `AMurderAtMidnightGameMode`, the server game mode. It selects `AMurderAtMidnightGameState` and `AMurderAtMidnightPlayerState`. It does not assign roles or decide wins yet.
+- `AMurderAtMidnightGameState`, with the public phase, phase end time, vote flag, and match result. Every client receives those fields. Nothing advances them yet.
+- `AMurderAtMidnightPlayerState`, with the public life state. The player name and the possessed pawn stay on the engine classes. The role and the agenda are not stored here.
+- `UMurderAtMidnightGameInstance`, set as the game instance. It holds no match secrets.
+- `AMurderAtMidnightPlayerController`, which sets up Enhanced Input, touch controls, and the camera manager. Private messages are not implemented yet.
 - `AMurderAtMidnightCharacter`, a first-person character with move, look, and jump.
 - `AHorrorGameMode` and `AShooterGameMode`, plus shooter weapons, shooter AI, and horror UI. These are local sample modes. Their player count stops at 4, and they are not a network match.
-- The engine's default `GameInstance`. There is no project subclass.
-- No `GameState` subclass and no `PlayerState` subclass.
 
 The map that opens is `/Game/FirstPerson/Lvl_FirstPerson`. The game mode that runs is the Blueprint `BP_FirstPersonGameMode`. Online subsystem support is present in the build file as a comment, and it is not turned on.
 
@@ -290,4 +291,4 @@ Steps 5 through 9 are the GDD's build order. They do not start in the architectu
 
 ## Approval stops here
 
-If this split is right, the next change is step 1 only: a C++ project and empty classes. No killer logic, no murder, no agendas, and no UI beyond what Unreal needs to launch a map.
+Steps 1 to 4 are in the project. The next change is step 5, and only after it is asked for: roles and a server-checked murder. No vote and no rat until that step is requested.

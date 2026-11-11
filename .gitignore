@@ -1,0 +1,8 @@
+# Unreal build and local editor files
+MurderAtMidnight/Binaries/
+MurderAtMidnight/Intermediate/
+MurderAtMidnight/Saved/
+MurderAtMidnight/DerivedDataCache/
+MurderAtMidnight/.vs/
+MurderAtMidnight/*.sln
+MurderAtMidnight/*.slnx

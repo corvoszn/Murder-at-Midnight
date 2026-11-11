@@ -7,7 +7,7 @@ alwaysApply: true
 
 Read `GDD.md`, `ARCHITECTURE.md`, and `CURSOR_RULES.md` before changing systems.
 
-The architecture is a proposal until the user approves it. The Unreal project already exists at `MurderAtMidnight/`. Do not create a second project, and do not add match classes or gameplay until the architecture is approved.
+The Unreal project already exists at `MurderAtMidnight/`. Do not create a second project. Step 1 match classes are in place. Do not implement murder, roles, agendas, votes, the hunt, or the rat until the user asks for that build step.
 
 The server decides match changes. Client calls are requests.
 
@@ -16,3 +16,5 @@ Never replicate the killer id, target list, agenda text, agenda progress, or vic
 Blueprint may present results. It does not decide them. Do not add a match-manager subsystem beside the GameMode unless the user asks.
 
 No Mischief meter. No reputation score. Do not commit unless the user asks.
+
+When an Unreal editor step would stall the work, ask the user to do it in the editor instead of guessing through repeated code changes. They will reparent a Blueprint, assign a class, set a property, compile, or press Play. Do not ask them to build Blueprint graphs or to write or explain C++.
