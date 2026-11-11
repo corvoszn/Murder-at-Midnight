@@ -1,0 +1,18 @@
+---
+description: Manor Murder Mystery architecture and authority constraints
+alwaysApply: true
+---
+
+# Project constraints
+
+Read `GDD.md`, `ARCHITECTURE.md`, and `CURSOR_RULES.md` before changing systems.
+
+The architecture is a proposal until the user approves it. The Unreal project already exists at `MurderAtMidnight/`. Do not create a second project, and do not add match classes or gameplay until the architecture is approved.
+
+The server decides match changes. Client calls are requests.
+
+Never replicate the killer id, target list, agenda text, agenda progress, or victim memory to other players. Those stay on the GameMode and go out through a client RPC to the owning PlayerController.
+
+Blueprint may present results. It does not decide them. Do not add a match-manager subsystem beside the GameMode unless the user asks.
+
+No Mischief meter. No reputation score. Do not commit unless the user asks.
