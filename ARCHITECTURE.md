@@ -291,4 +291,4 @@ Steps 5 through 9 are the GDD's build order. They do not start in the architectu
 
 ## Approval stops here
 
-Steps 1 to 4 are in the project. The next change is step 5, and only after it is asked for: roles and a server-checked murder. No vote and no rat until that step is requested.
+Steps 1 to 5 are in the project. The server assigns roles and checks a close-range kill. The next change, after it is asked for, is one agenda the server can mark complete. No vote and no rat until that step is requested.

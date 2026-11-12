@@ -42,14 +42,28 @@ public:
 	/** Local input. Asks the server to drop a carried key. */
 	void RequestDrop();
 
+	/** Local input. Asks the server to attack the player being looked at. */
+	void RequestKill();
+
 	const FString& GetLastInteractMessage() const { return LastInteractMessage; }
 
 	/** This player's agenda. Set by a client RPC. It is not replicated. */
 	const FString& GetPrivateAgenda() const { return PrivateAgenda; }
 
+	/** This player's role. Set by a client RPC. It is not replicated. */
+	const FString& GetPrivateRole() const { return PrivateRole; }
+
 	/** This player's agenda. Sent only to this controller. */
 	UFUNCTION(Client, Reliable)
 	void ClientReceiveAgenda(const FString& AgendaText);
+
+	/** This player's role. Sent only to this controller. */
+	UFUNCTION(Client, Reliable)
+	void ClientReceiveRole(const FString& RoleText);
+
+	/** Result of this player's last request. Sent only to this controller. */
+	UFUNCTION(Client, Reliable)
+	void ClientInteractMessage(const FString& Message);
 
 protected:
 
@@ -91,21 +105,25 @@ protected:
 	UFUNCTION(Server, Reliable)
 	void ServerRequestDrop(FVector ViewAim);
 
-	/** Result of this player's last request. Sent only to this player. */
-	UFUNCTION(Client, Reliable)
-	void ClientInteractMessage(const FString& Message);
+	UFUNCTION(Server, Reliable)
+	void ServerRequestKill(FVector ViewStart, FVector ViewAim);
 
 	/** Asks the server to repeat this player's own agenda. The client does not choose the text. */
 	UFUNCTION(Server, Reliable)
 	void ServerRequestPrivateAgenda();
 
-	bool TraceAlongView(const FVector& ViewStart, const FVector& ViewAim, FHitResult& OutHit);
+	bool TraceAlongView(const FVector& ViewStart, const FVector& ViewAim, FHitResult& OutHit, float MaxDistance = 400.0f);
+
+	bool IsDead() const;
 
 	/** Not replicated. Filled by ClientInteractMessage. */
 	FString LastInteractMessage;
 
 	/** Not replicated. Filled by ClientReceiveAgenda. */
 	FString PrivateAgenda;
+
+	/** Not replicated. Filled by ClientReceiveRole. */
+	FString PrivateRole;
 
 	/** Returns true if the player should use UMG touch controls */
 	bool ShouldUseTouchControls() const;

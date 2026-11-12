@@ -7,7 +7,7 @@ alwaysApply: true
 
 Read `GDD.md`, `ARCHITECTURE.md`, and `CURSOR_RULES.md` before changing systems.
 
-The Unreal project already exists at `MurderAtMidnight/`. Do not create a second project. Step 1 match classes are in place. Do not implement murder, roles, agendas, votes, the hunt, or the rat until the user asks for that build step.
+The Unreal project already exists at `MurderAtMidnight/`. Do not create a second project. Roles, private agendas, and a server-checked kill are in place. Do not implement votes, the hunt, or the rat until the user asks for that build step.
 
 The server decides match changes. Client calls are requests.
 

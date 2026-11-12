@@ -4,7 +4,9 @@
 #include "Camera/CameraComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "MurderAtMidnightCharacter.h"
+#include "MurderAtMidnightGameMode.h"
 #include "MurderAtMidnightInventoryComponent.h"
+#include "MurderAtMidnightPlayerController.h"
 #include "Net/UnrealNetwork.h"
 
 namespace
@@ -72,20 +74,40 @@ bool UMurderAtMidnightInteractableComponent::ServerInteract(AMurderAtMidnightCha
 
 	if (bOpen)
 	{
-		OutMessage = TEXT("The cabinet is already open.");
-		return false;
-	}
+		if (!Inventory->HasItem(RequiredItemId))
+		{
+			OutMessage = TEXT("isopen");
+			return false;
+		}
 
-	if (!Inventory->HasItem(RequiredItemId))
+		bOpen = false;
+	}
+	else
 	{
-		OutMessage = TEXT("The cabinet is locked.");
-		return false;
+		if (!Inventory->HasItem(RequiredItemId))
+		{
+			OutMessage = TEXT("isclosed");
+			return false;
+		}
+
+		bOpen = true;
 	}
 
-	bOpen = true;
 	ApplyVisual();
 	OwnerActor->ForceNetUpdate();
-	OutMessage = TEXT("The cabinet opens.");
+	OutMessage = bOpen ? TEXT("isopen") : TEXT("isclosed");
+
+	if (UWorld* World = GetWorld())
+	{
+		if (AMurderAtMidnightGameMode* MatchMode = World->GetAuthGameMode<AMurderAtMidnightGameMode>())
+		{
+			if (AMurderAtMidnightPlayerController* Controller = Cast<AMurderAtMidnightPlayerController>(Who->GetController()))
+			{
+				MatchMode->NotifyCabinetLockChanged(Controller, bOpen);
+			}
+		}
+	}
+
 	return true;
 }
 
@@ -208,7 +230,7 @@ void UMurderAtMidnightInteractableComponent::ApplyVisual() const
 		return;
 	}
 
-	const FVector Color = bOpen ? FVector(0.15f, 0.75f, 0.25f) : FVector(0.35f, 0.16f, 0.1f);
+	const FVector Color = FVector(0.35f, 0.16f, 0.1f);
 	Mesh->SetVectorParameterValueOnMaterials(TEXT("Color"), Color);
 }
 

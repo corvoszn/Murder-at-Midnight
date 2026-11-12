@@ -8,7 +8,7 @@ Before changing systems, read [GDD.md](GDD.md) and [ARCHITECTURE.md](ARCHITECTUR
 
 ## Do not get ahead of approval
 
-Steps 1 to 4 are in the project. Do not start a later build step until the user asks for it.
+Steps 1 to 5 are in the project. A server-checked kill is in. Do not start the vote, the hunt, or the rat until the user asks for that step.
 
 Do not create a second Unreal project. Do not implement murder, roles, agendas, votes, the hunt, rats, or voice unless that step was requested.
 

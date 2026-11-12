@@ -13,6 +13,7 @@
 #include "MurderAtMidnightInteractableComponent.h"
 #include "MurderAtMidnightKey.h"
 #include "MurderAtMidnightGameMode.h"
+#include "MurderAtMidnightPlayerState.h"
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "EngineUtils.h"
@@ -145,7 +146,26 @@ void AMurderAtMidnightPlayerController::RequestDrop()
 	ServerRequestDrop(ViewRotation.Vector());
 }
 
-bool AMurderAtMidnightPlayerController::TraceAlongView(const FVector& ViewStart, const FVector& ViewAim, FHitResult& OutHit)
+void AMurderAtMidnightPlayerController::RequestKill()
+{
+	if (!IsLocalController())
+	{
+		return;
+	}
+
+	FVector ViewStart = FVector::ZeroVector;
+	FRotator ViewRotation = FRotator::ZeroRotator;
+	GetPlayerViewPoint(ViewStart, ViewRotation);
+	ServerRequestKill(ViewStart, ViewRotation.Vector());
+}
+
+bool AMurderAtMidnightPlayerController::IsDead() const
+{
+	const AMurderAtMidnightPlayerState* State = GetPlayerState<AMurderAtMidnightPlayerState>();
+	return State && State->LifeState == EMurderAtMidnightLifeState::Dead;
+}
+
+bool AMurderAtMidnightPlayerController::TraceAlongView(const FVector& ViewStart, const FVector& ViewAim, FHitResult& OutHit, float MaxDistance)
 {
 	AMurderAtMidnightCharacter* Self = Cast<AMurderAtMidnightCharacter>(GetPawn());
 	UWorld* World = GetWorld();
@@ -163,7 +183,7 @@ bool AMurderAtMidnightPlayerController::TraceAlongView(const FVector& ViewStart,
 	}
 
 	const FVector TraceAim = Aim.IsNearlyZero() ? GetControlRotation().Vector() : Aim;
-	const FVector End = Start + TraceAim * 400.0f;
+	const FVector End = Start + TraceAim * MaxDistance;
 
 	FCollisionQueryParams Params(SCENE_QUERY_STAT(Interact), false, Self);
 	TArray<AActor*> Attached;
@@ -177,7 +197,7 @@ bool AMurderAtMidnightPlayerController::TraceAlongView(const FVector& ViewStart,
 void AMurderAtMidnightPlayerController::ServerRequestInteract_Implementation(FVector ViewStart, FVector ViewAim)
 {
 	AMurderAtMidnightCharacter* Self = Cast<AMurderAtMidnightCharacter>(GetPawn());
-	if (!Self)
+	if (!Self || IsDead())
 	{
 		ClientInteractMessage(TEXT("The server refused that."));
 		return;
@@ -235,7 +255,7 @@ void AMurderAtMidnightPlayerController::ServerRequestDrop_Implementation(FVector
 {
 	AMurderAtMidnightCharacter* Self = Cast<AMurderAtMidnightCharacter>(GetPawn());
 	UWorld* World = GetWorld();
-	if (!Self || !World)
+	if (!Self || !World || IsDead())
 	{
 		ClientInteractMessage(TEXT("The server refused that."));
 		return;
@@ -275,6 +295,66 @@ void AMurderAtMidnightPlayerController::ServerRequestDrop_Implementation(FVector
 	ClientInteractMessage(Message);
 }
 
+void AMurderAtMidnightPlayerController::ServerRequestKill_Implementation(FVector ViewStart, FVector ViewAim)
+{
+	if (IsDead())
+	{
+		ClientInteractMessage(TEXT("The server refused that."));
+		return;
+	}
+
+	UWorld* World = GetWorld();
+	AMurderAtMidnightGameMode* MatchMode = World ? World->GetAuthGameMode<AMurderAtMidnightGameMode>() : nullptr;
+	AMurderAtMidnightCharacter* Self = Cast<AMurderAtMidnightCharacter>(GetPawn());
+	if (!MatchMode || !Self)
+	{
+		ClientInteractMessage(TEXT("The server refused that."));
+		return;
+	}
+
+	FHitResult Hit;
+	if (!TraceAlongView(ViewStart, ViewAim, Hit, 400.0f) || !Hit.GetActor())
+	{
+		ClientInteractMessage(TEXT("Nobody there."));
+		return;
+	}
+
+	AMurderAtMidnightCharacter* VictimBody = Cast<AMurderAtMidnightCharacter>(Hit.GetActor());
+	if (!VictimBody)
+	{
+		ClientInteractMessage(TEXT("Nobody there."));
+		return;
+	}
+
+	AMurderAtMidnightPlayerController* Victim = nullptr;
+	for (FConstPlayerControllerIterator It = World->GetPlayerControllerIterator(); It; ++It)
+	{
+		AMurderAtMidnightPlayerController* Candidate = Cast<AMurderAtMidnightPlayerController>(It->Get());
+		if (Candidate && Candidate->GetPawn() == VictimBody)
+		{
+			Victim = Candidate;
+			break;
+		}
+	}
+
+	if (!Victim || Victim == this)
+	{
+		ClientInteractMessage(TEXT("Nobody there."));
+		return;
+	}
+
+	if (FVector::DistSquared(Self->GetActorLocation(), VictimBody->GetActorLocation()) > FMath::Square(450.0f))
+	{
+		ClientInteractMessage(TEXT("They are too far away."));
+		return;
+	}
+
+	FString Message;
+	MatchMode->TryMurder(this, Victim, Message);
+	UE_LOG(LogMurderAtMidnight, Log, TEXT("A kill was requested."));
+	ClientInteractMessage(Message);
+}
+
 void AMurderAtMidnightPlayerController::ClientInteractMessage_Implementation(const FString& Message)
 {
 	LastInteractMessage = Message;
@@ -287,12 +367,18 @@ void AMurderAtMidnightPlayerController::ServerRequestPrivateAgenda_Implementatio
 	if (MatchMode)
 	{
 		MatchMode->SendPrivateAgenda(this);
+		MatchMode->SendPrivateRole(this);
 	}
 }
 
 void AMurderAtMidnightPlayerController::ClientReceiveAgenda_Implementation(const FString& AgendaText)
 {
 	PrivateAgenda = AgendaText;
+}
+
+void AMurderAtMidnightPlayerController::ClientReceiveRole_Implementation(const FString& RoleText)
+{
+	PrivateRole = RoleText;
 }
 
 bool AMurderAtMidnightPlayerController::ShouldUseTouchControls() const

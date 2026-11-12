@@ -1,8 +1,8 @@
 # Game Design Document
 
-Version 0.4 — Manor Murder Mystery
+Version 0.5 — Manor Murder Mystery
 
-This version replaces the earlier draft. It keeps the same game, and it records the rules we have locked. Meters, reputation scores, and the old open questions have been removed.
+This version keeps the locked rules from 0.4 and adds the host's compulsory assignment. Meters, reputation scores, and the old open questions stay out.
 
 ## 1. Game Overview
 
@@ -70,13 +70,35 @@ The match runs from 6 PM to midnight, in four periods.
 
 These are gatherings, not separate rounds. Players can walk between rooms the whole time. Missing dinner is allowed. A guest who skips it misses what was said there.
 
+One event is different. Once per match the host calls a compulsory assignment, described in section 2.3. A living guest who misses it, or fails its task, is expelled.
+
 ### 2.2 The Host
 
-The host is an NPC. The host welcomes the guests, hands out agendas in private at the start, announces the gatherings, prompts dinner conversation, and calls people together for a vote.
+The host is an NPC. The host welcomes the guests, hands out agendas in private at the start, announces the gatherings, prompts dinner conversation, calls people together for a vote, and once per match calls the living players to the hall for the compulsory assignment.
 
-The host does not judge who is guilty, invent new objectives, or play the match for the players. The host's lines can be written in advance.
+The host does not judge who is guilty, invent new objectives, or play the match for the players. The assignment notes are written in advance. The host's lines can be written in advance.
 
 When only two living people remain, the host announces that fact through the manor. The announcement is described in section 5.
+
+### 2.3 The Host's Compulsory Assignment
+
+Once each match, the host summons the living players to the main hall over the intercom.
+
+A table in the hall holds one private note for each living player, including the killer. Each person takes one note. The server gives that person their own note. It does not show the note to anyone else.
+
+A guest's note is a simple task and a place in the manor. It is not their personal agenda. The agenda stays as it was. A guest may still ignore the agenda. A living guest may not ignore this task.
+
+The server checks that the assigned task was completed. The time limit is a few minutes. It should be long enough to walk there and do the task, and short enough that people are spread through the house together.
+
+A living guest who has not finished when the time ends is expelled. They leave the match. They do not become a rat. Their agenda leaves the set. If they were a target, they come off the hit list. That is not a kill, and nobody is added in their place. If the expulsion leaves the killer and one guest, the hunt in section 5 starts. If it leaves only the killer, the killer wins.
+
+The killer does not get a task, and cannot be expelled by this event. The killer's note is a clue to a tool or a weapon. The item is in a box with a lock timer. The server allows the box to be opened only during this assignment. When the time ends, the server refuses it. The clue is private to the killer. The box does not store the killer's id.
+
+In those few minutes the killer can get a kill, fetch the item, or try to do both. The assignment does not pause murder.
+
+Rats are not called to the table. This event does not expel them.
+
+The assignment sends people to different rooms at the same time. They meet where they did not plan to. The task competes with a guest's agenda and with the killer's own plan.
 
 ## 3. Roles and Victory
 
@@ -329,7 +351,7 @@ The first evening does not need a stack of minigames. Charades, croquet, poker, 
 
 Dinner, seating, and passing objects around are enough at the start, because they use talking and the object rules we already need. An auction or a treasure hunt can come later, and only if it hands out keys, letters, or access that the match already understands.
 
-Refusing to join an activity does not make someone guilty.
+Refusing to join an ordinary activity does not make someone guilty. The compulsory assignment in section 2.3 is the exception. A living guest who refuses it, or fails its task, is expelled from the manor. The expulsion does not name them as the killer.
 
 ## 13. First Playable Version
 
@@ -364,17 +386,18 @@ The server decides murders, agenda completion, votes, the clock, and who is aliv
 
 Each client may know its own role, its own agenda, and, for the killer, the target list. Clients must not be able to read anyone else's private information from the network.
 
-The host's announcements, the living player count, and the vote are public.
+The host's announcements, the living player count, the vote, and an expulsion are public.
 
-Agenda progress is private to the player who owns it.
+Agenda progress is private to the player who owns it. A compulsory-assignment note is private to the player who took it. The killer's tool clue is private to the killer.
 
 ## 15. Tuning, Not Open Rules
 
 These numbers can change after playtests. They are not undecided rules.
 
 - The sped-up hunt lasts a few minutes.
+- The compulsory assignment lasts a few minutes.
 - A rat is warned after a couple of minutes with no input.
 - A five- or six-player match has two targets. A seven- or eight-player match has three.
 - Poison's delay, and how hard a witnessed murder is to land, will need to be felt in a real session.
 
-The rules those numbers serve are already set. They are in sections 3, 4, 5, 6, and 10.
+The rules those numbers serve are already set. They are in sections 2.3, 3, 4, 5, 6, and 10.

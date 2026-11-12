@@ -83,10 +83,19 @@ protected:
 
 	void InteractPressed();
 	void DropPressed();
+	void KillPressed();
+
+public:
+
+	void ApplyDeadBody();
+
+private:
+	bool bDeadBodyApplied = false;
 
 protected:
 
 	/** Set up input action bindings */
+	virtual void BeginPlay() override;
 	virtual void SetupPlayerInputComponent(UInputComponent* InputComponent) override;
 	
 

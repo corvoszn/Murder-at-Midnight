@@ -6,10 +6,14 @@
 #include "Components/CanvasPanel.h"
 #include "Components/CanvasPanelSlot.h"
 #include "Components/TextBlock.h"
+#include "EngineUtils.h"
+#include "MurderAtMidnightCabinet.h"
 #include "MurderAtMidnightCharacter.h"
 #include "MurderAtMidnightGameState.h"
+#include "MurderAtMidnightInteractableComponent.h"
 #include "MurderAtMidnightInventoryComponent.h"
 #include "MurderAtMidnightPlayerController.h"
+#include "MurderAtMidnightPlayerState.h"
 #include "Styling/CoreStyle.h"
 #include "TimerManager.h"
 
@@ -120,7 +124,7 @@ void UMurderAtMidnightPhaseWidget::RefreshText()
 		return;
 	}
 
-	const UWorld* World = GetWorld();
+	UWorld* World = GetWorld();
 	const AMurderAtMidnightGameState* MatchState = World ? World->GetGameState<AMurderAtMidnightGameState>() : nullptr;
 	if (!MatchState)
 	{
@@ -133,18 +137,43 @@ void UMurderAtMidnightPhaseWidget::RefreshText()
 	const AMurderAtMidnightCharacter* Character = Controller ? Cast<AMurderAtMidnightCharacter>(Controller->GetPawn()) : nullptr;
 	const UMurderAtMidnightInventoryComponent* Inventory = Character ? Character->GetInventory() : nullptr;
 	const FString Carrying = Inventory ? Inventory->GetCarriedLabel() : TEXT("nothing");
+	FString CabinetState = TEXT("isclosed");
+	if (World)
+	{
+		for (TActorIterator<AMurderAtMidnightCabinet> It(World); It; ++It)
+		{
+			if (const UMurderAtMidnightInteractableComponent* Interactable = It->GetInteractable())
+			{
+				CabinetState = Interactable->IsOpen() ? TEXT("isopen") : TEXT("isclosed");
+				break;
+			}
+		}
+	}
 	const AMurderAtMidnightPlayerController* MatchController = Cast<AMurderAtMidnightPlayerController>(Controller);
 	const FString Result = MatchController ? MatchController->GetLastInteractMessage() : FString();
 
-	FString Text = FString::Printf(TEXT("%s    %d\nF use    G drop\nCarrying: %s"), *PhaseLabel(MatchState->Phase), SecondsRemaining, *Carrying);
+	FString Text = FString::Printf(TEXT("%s    %d\nF use    G drop    Click attack\nCarrying: %s\n%s"), *PhaseLabel(MatchState->Phase), SecondsRemaining, *Carrying, *CabinetState);
 	if (!Result.IsEmpty())
 	{
 		Text += TEXT("\n") + Result;
 	}
 
+	if (MatchController && !MatchController->GetPrivateRole().IsEmpty())
+	{
+		Text += TEXT("\n\n") + MatchController->GetPrivateRole();
+	}
+
 	if (MatchController && !MatchController->GetPrivateAgenda().IsEmpty())
 	{
 		Text += TEXT("\n\nYour agenda\n") + MatchController->GetPrivateAgenda();
+	}
+
+	if (const AMurderAtMidnightPlayerState* State = MatchController ? MatchController->GetPlayerState<AMurderAtMidnightPlayerState>() : nullptr)
+	{
+		if (State->LifeState == EMurderAtMidnightLifeState::Dead)
+		{
+			Text += TEXT("\n\nYou are dead.");
+		}
 	}
 
 	PhaseText->SetText(FText::FromString(Text));

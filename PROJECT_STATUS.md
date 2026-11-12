@@ -4,7 +4,7 @@ Last updated: 11 November 2026.
 
 ## Where the project is
 
-Step 4 is in the Unreal project. A listen server can host up to eight players. The server advances the public phase and clock, checks pickup, drop, give, and one cabinet lock, and sends each player a private agenda. It does not assign roles or decide a winner.
+Step 5 is in the Unreal project. The server assigns one killer and a private target list, and it is the only machine that can accept a kill. A kill does not choose a winner, call a vote, or create a rat.
 
 The game is a 5 to 8 player first-person murder mystery in Unreal Engine 5. The rules are in [GDD.md](GDD.md), version 0.4. The proposed code layout is in [ARCHITECTURE.md](ARCHITECTURE.md). Agent constraints are in [CURSOR_RULES.md](CURSOR_RULES.md).
 
@@ -19,7 +19,9 @@ The game is a 5 to 8 player first-person murder mystery in Unreal Engine 5. The 
 - `UMurderAtMidnightInventoryComponent` on the character. The carried item id replicates to every player. Only the server writes it.
 - `UMurderAtMidnightInteractableComponent` on `AMurderAtMidnightKey` and `AMurderAtMidnightCabinet`. Whether the key is carried, who holds it, and whether the cabinet is open replicate to every player. The server owns those actors. Picking one up does not give the client ownership.
 - The server spawns one gold key and one cabinet in front of the player start when the map does not already have them. F asks to use the thing you are looking at. G asks to drop the key. A refusal is a client message to the player who asked.
-- Each player has one private agenda. The text is stored on the GameMode and sent with a client RPC to that player's controller. It is not a replicated property. The local widget shows it. Nobody is told that an agenda is finished.
+- Each guest has one private agenda: find the key, unlock the cabinet, then lock it again. The server records that sequence for that guest only. When it is done, that guest's agenda line ends with " - Completed". The killer has no agenda. The cabinet state shown on screen is public: isopen or isclosed. Opening and locking both require the key.
+- One player is the killer. The target list is stored on the GameMode and sent only to the killer. A lobby of 2 to 4 players has one target. Five or six players have two. Seven or eight have three. Guests are not told whether they are targets. Public names are Guest 1, Guest 2, and so on.
+- K asks the server to kill the player in front of you, within about two metres. The server accepts it only from the living killer, and only against a living player. A target is removed from the killer's private list. Anyone else can be killed, and the list does not change. Every client sees that the person is dead. The body does not store who did it. The victim is told they are dead, not who attacked them.
 - The template Horror and Shooter variants, including weapons and AI. These are samples, not the match.
 - A default map, `Lvl_FirstPerson`, and a Blueprint game mode, `BP_FirstPersonGameMode`.
 - A git repository on `main` with no commits yet.
@@ -27,7 +29,7 @@ The game is a 5 to 8 player first-person murder mystery in Unreal Engine 5. The 
 ## What does not exist
 
 - No online subsystem session. Joining uses a direct IP address.
-- No roles, vote, hunt, rats, or voice. Agendas are delivered, and they are not checked off.
+- No vote, hunt, rats, or voice. Agendas are delivered, and they are not checked off. A kill does not end the match.
 - No code that writes a match result.
 - No manor map. The open level is the template range.
 
@@ -59,4 +61,4 @@ The refusal text is sent only to the player who pressed the key. The carried ite
 
 ## Next step
 
-Step 5: roles and a server-checked murder. The killer does not receive an agenda. No vote and no rat yet.
+A door and one clue. The door uses the same lock check as the cabinet. The clue stores what changed, not who did it.

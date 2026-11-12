@@ -72,6 +72,20 @@ void AMurderAtMidnightCharacter::SetupPlayerInputComponent(UInputComponent* Play
 
 	PlayerInputComponent->BindKey(EKeys::F, IE_Pressed, this, &AMurderAtMidnightCharacter::InteractPressed);
 	PlayerInputComponent->BindKey(EKeys::G, IE_Pressed, this, &AMurderAtMidnightCharacter::DropPressed);
+	PlayerInputComponent->BindKey(EKeys::K, IE_Pressed, this, &AMurderAtMidnightCharacter::KillPressed);
+	PlayerInputComponent->BindKey(EKeys::LeftMouseButton, IE_Pressed, this, &AMurderAtMidnightCharacter::KillPressed);
+}
+
+void AMurderAtMidnightCharacter::BeginPlay()
+{
+	Super::BeginPlay();
+
+	if (USkeletalMeshComponent* BodyMesh = GetMesh())
+	{
+		BodyMesh->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+		BodyMesh->SetCollisionResponseToAllChannels(ECR_Ignore);
+		BodyMesh->SetCollisionResponseToChannel(ECC_Visibility, ECR_Block);
+	}
 }
 
 
@@ -140,5 +154,34 @@ void AMurderAtMidnightCharacter::DropPressed()
 	if (AMurderAtMidnightPlayerController* MatchController = Cast<AMurderAtMidnightPlayerController>(GetController()))
 	{
 		MatchController->RequestDrop();
+	}
+}
+
+void AMurderAtMidnightCharacter::KillPressed()
+{
+	if (AMurderAtMidnightPlayerController* MatchController = Cast<AMurderAtMidnightPlayerController>(GetController()))
+	{
+		MatchController->RequestKill();
+	}
+}
+
+void AMurderAtMidnightCharacter::ApplyDeadBody()
+{
+	if (bDeadBodyApplied)
+	{
+		return;
+	}
+
+	bDeadBodyApplied = true;
+	if (UCharacterMovementComponent* Movement = GetCharacterMovement())
+	{
+		Movement->StopMovementImmediately();
+		Movement->DisableMovement();
+	}
+
+	if (USkeletalMeshComponent* BodyMesh = GetMesh())
+	{
+		BodyMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		BodyMesh->AddRelativeRotation(FRotator(0.0f, 0.0f, 80.0f));
 	}
 }

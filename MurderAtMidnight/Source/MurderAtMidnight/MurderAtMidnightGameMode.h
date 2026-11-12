@@ -9,10 +9,16 @@
 
 class AMurderAtMidnightPlayerController;
 
+struct FMurderAtMidnightAgendaProgress
+{
+	bool bUnlockedCabinet = false;
+	bool bComplete = false;
+};
+
 /**
  *  Server-only match authority for a first person game.
- *  This step advances the public phase and clock, and keeps each player's agenda.
- *  It does not assign roles or decide a winner.
+ *  This step advances the public phase and clock, keeps each player's agenda, and assigns roles.
+ *  It does not decide a winner.
  *  Public facts are written onto the GameState. Private facts go to one PlayerController.
  */
 UCLASS(abstract)
@@ -31,6 +37,15 @@ public:
 
 	/** Server only. Assigns an agenda if this player does not have one, then tells that controller. */
 	void SendPrivateAgenda(AMurderAtMidnightPlayerController* Controller);
+
+	/** Server only. Repeats this player's role. The client does not choose it. */
+	void SendPrivateRole(AMurderAtMidnightPlayerController* Controller);
+
+	/** Server only. The killer is close to a living player and has asked to kill them. */
+	void TryMurder(AMurderAtMidnightPlayerController* Attacker, AMurderAtMidnightPlayerController* Victim, FString& OutMessage);
+
+	/** Server only. A player with the key opened or locked the cabinet. */
+	void NotifyCabinetLockChanged(AMurderAtMidnightPlayerController* Who, bool bIsOpen);
 
 protected:
 	/** Real-time length of Arrival, in seconds. Exposed so Blueprint can tune it. */
@@ -63,7 +78,25 @@ private:
 	/** Agenda text by controller. Server memory only. Not a replicated property. */
 	TMap<TObjectPtr<APlayerController>, FString> PrivateAgendas;
 
+	/** Whether each guest has unlocked the cabinet, and whether their agenda is done. Server memory only. */
+	TMap<TObjectPtr<APlayerController>, FMurderAtMidnightAgendaProgress> AgendaProgress;
+
+	/** The killer. Server memory only. Not a replicated property. */
+	TObjectPtr<AMurderAtMidnightPlayerController> Killer;
+
+	/** The killer's targets. Server memory only. Not a replicated property. */
+	TArray<TObjectPtr<AMurderAtMidnightPlayerController>> Targets;
+
+	bool bRolesAssigned = false;
+	int32 NextGuestNumber = 0;
+
 	void EnsureAgendaTexts();
+	FString BuildAgendaLine(const AMurderAtMidnightPlayerController* Controller) const;
+	void AssignPublicName(APlayerController* Controller);
+	void TryAssignRoles();
+	int32 TargetCountForLobby(int32 PlayerCount) const;
+	void GatherPlayers(TArray<AMurderAtMidnightPlayerController*>& OutPlayers) const;
+	void MarkAlive(AController* Controller);
 
 	void StartPhase(EMurderAtMidnightPhase NewPhase);
 	void AdvancePhase();

@@ -32,6 +32,12 @@ public:
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
 	/** Whether this player is in the lobby, alive, dead, or a rat. Replicated to every client. */
-	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Match")
+	UPROPERTY(ReplicatedUsing = OnRep_LifeState, BlueprintReadOnly, Category = "Match")
 	EMurderAtMidnightLifeState LifeState = EMurderAtMidnightLifeState::InLobby;
+
+	/** Server only. Writes the public life state. */
+	void SetLifeState(EMurderAtMidnightLifeState NewState);
+
+	UFUNCTION()
+	void OnRep_LifeState();
 };
