@@ -10,6 +10,7 @@
 #include "InputCoreTypes.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "MurderAtMidnight.h"
+#include "MurderAtMidnightGameState.h"
 #include "MurderAtMidnightInventoryComponent.h"
 #include "MurderAtMidnightPlayerController.h"
 
@@ -74,6 +75,8 @@ void AMurderAtMidnightCharacter::SetupPlayerInputComponent(UInputComponent* Play
 	PlayerInputComponent->BindKey(EKeys::G, IE_Pressed, this, &AMurderAtMidnightCharacter::DropPressed);
 	PlayerInputComponent->BindKey(EKeys::K, IE_Pressed, this, &AMurderAtMidnightCharacter::KillPressed);
 	PlayerInputComponent->BindKey(EKeys::LeftMouseButton, IE_Pressed, this, &AMurderAtMidnightCharacter::KillPressed);
+	PlayerInputComponent->BindKey(EKeys::V, IE_Pressed, this, &AMurderAtMidnightCharacter::VotePressed);
+	PlayerInputComponent->BindKey(EKeys::P, IE_Pressed, this, &AMurderAtMidnightCharacter::SkipPhasePressed);
 }
 
 void AMurderAtMidnightCharacter::BeginPlay()
@@ -85,6 +88,13 @@ void AMurderAtMidnightCharacter::BeginPlay()
 		BodyMesh->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 		BodyMesh->SetCollisionResponseToAllChannels(ECR_Ignore);
 		BodyMesh->SetCollisionResponseToChannel(ECC_Visibility, ECR_Block);
+	}
+
+	if (UCharacterMovementComponent* Movement = GetCharacterMovement())
+	{
+		Movement->InitialPushForceFactor = 0.0f;
+		Movement->PushForceFactor = 0.0f;
+		Movement->bScalePushForceToVelocity = false;
 	}
 }
 
@@ -161,7 +171,66 @@ void AMurderAtMidnightCharacter::KillPressed()
 {
 	if (AMurderAtMidnightPlayerController* MatchController = Cast<AMurderAtMidnightPlayerController>(GetController()))
 	{
+		const AMurderAtMidnightGameState* MatchState = GetWorld() ? GetWorld()->GetGameState<AMurderAtMidnightGameState>() : nullptr;
+		if (MatchState && MatchState->bVoteOpen)
+		{
+			MatchController->RequestCastVote();
+			return;
+		}
+
 		MatchController->RequestKill();
+	}
+}
+
+void AMurderAtMidnightCharacter::VotePressed()
+{
+	if (AMurderAtMidnightPlayerController* MatchController = Cast<AMurderAtMidnightPlayerController>(GetController()))
+	{
+		MatchController->RequestVote();
+	}
+}
+
+void AMurderAtMidnightCharacter::SkipPhasePressed()
+{
+	if (AMurderAtMidnightPlayerController* MatchController = Cast<AMurderAtMidnightPlayerController>(GetController()))
+	{
+		MatchController->RequestSkipPhase();
+	}
+}
+
+float AMurderAtMidnightCharacter::GetPickupDelay(float MassKg) const
+{
+	const float Alpha = FMath::Clamp(MassKg / FMath::Max(HeavyMassKg, 1.0f), 0.0f, 1.0f);
+	return FMath::Lerp(LightPickupSeconds, HeavyPickupSeconds, Alpha);
+}
+
+void AMurderAtMidnightCharacter::ApplyCarryMass(float MassKg)
+{
+	ClearCarryMass();
+
+	UCharacterMovementComponent* Movement = GetCharacterMovement();
+	if (!Movement)
+	{
+		return;
+	}
+
+	SavedMaxWalkSpeed = Movement->MaxWalkSpeed;
+	bCarrySlowApplied = true;
+	const float Alpha = FMath::Clamp(MassKg / FMath::Max(HeavyMassKg, 1.0f), 0.0f, 1.0f);
+	Movement->MaxWalkSpeed = SavedMaxWalkSpeed * FMath::Lerp(1.0f, SlowestWalkScale, Alpha);
+}
+
+void AMurderAtMidnightCharacter::ClearCarryMass()
+{
+	if (!bCarrySlowApplied)
+	{
+		return;
+	}
+
+	bCarrySlowApplied = false;
+	if (UCharacterMovementComponent* Movement = GetCharacterMovement())
+	{
+		Movement->MaxWalkSpeed = SavedMaxWalkSpeed;
 	}
 }
 

@@ -31,6 +31,11 @@ FString UMurderAtMidnightInventoryComponent::GetCarriedLabel() const
 		return TEXT("a key");
 	}
 
+	if (CarriedItemIds[0] == FName(TEXT("Weapon")))
+	{
+		return TEXT("a weapon");
+	}
+
 	return CarriedItemIds[0].ToString();
 }
 

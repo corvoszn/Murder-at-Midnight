@@ -8,13 +8,6 @@
 
 AMurderAtMidnightKey::AMurderAtMidnightKey()
 {
-	PickupVolume = CreateDefaultSubobject<USphereComponent>(TEXT("PickupVolume"));
-	PickupVolume->SetSphereRadius(36.0f);
-	PickupVolume->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
-	PickupVolume->SetCollisionResponseToAllChannels(ECR_Ignore);
-	PickupVolume->SetCollisionResponseToChannel(ECC_Visibility, ECR_Block);
-	SetRootComponent(PickupVolume);
-
 	static ConstructorHelpers::FObjectFinder<UStaticMesh> CylinderMesh(TEXT("/Engine/BasicShapes/Cylinder.Cylinder"));
 	if (CylinderMesh.Succeeded() && Mesh)
 	{
@@ -23,10 +16,15 @@ AMurderAtMidnightKey::AMurderAtMidnightKey()
 
 	if (Mesh)
 	{
-		Mesh->SetupAttachment(PickupVolume);
-		Mesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 		Mesh->SetRelativeScale3D(FVector(0.15f, 0.15f, 0.35f));
 	}
+
+	PickupVolume = CreateDefaultSubobject<USphereComponent>(TEXT("PickupVolume"));
+	PickupVolume->SetupAttachment(Mesh);
+	PickupVolume->SetSphereRadius(36.0f);
+	PickupVolume->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+	PickupVolume->SetCollisionResponseToAllChannels(ECR_Ignore);
+	PickupVolume->SetCollisionResponseToChannel(ECC_Visibility, ECR_Block);
 
 	if (Interactable)
 	{

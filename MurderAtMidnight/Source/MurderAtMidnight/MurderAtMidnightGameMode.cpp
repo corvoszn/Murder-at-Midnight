@@ -6,6 +6,8 @@
 #include "GameFramework/PlayerState.h"
 #include "MurderAtMidnight.h"
 #include "MurderAtMidnightCabinet.h"
+#include "MurderAtMidnightDoor.h"
+#include "MurderAtMidnightWeapon.h"
 #include "MurderAtMidnightHUD.h"
 #include "MurderAtMidnightKey.h"
 #include "MurderAtMidnightPlayerController.h"
@@ -17,7 +19,6 @@ AMurderAtMidnightGameMode::AMurderAtMidnightGameMode()
 	GameStateClass = AMurderAtMidnightGameState::StaticClass();
 	PlayerStateClass = AMurderAtMidnightPlayerState::StaticClass();
 	HUDClass = AMurderAtMidnightHUD::StaticClass();
-	EnsureAgendaTexts();
 }
 
 void AMurderAtMidnightGameMode::InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage)
@@ -51,6 +52,8 @@ void AMurderAtMidnightGameMode::SpawnTestKeyAndCabinet()
 
 	bool bHasKey = false;
 	bool bHasCabinet = false;
+	bool bHasDoor = false;
+	bool bHasWeapon = false;
 	for (TActorIterator<AMurderAtMidnightKey> KeyIt(World); KeyIt; ++KeyIt)
 	{
 		bHasKey = true;
@@ -61,8 +64,18 @@ void AMurderAtMidnightGameMode::SpawnTestKeyAndCabinet()
 		bHasCabinet = true;
 		break;
 	}
+	for (TActorIterator<AMurderAtMidnightDoor> DoorIt(World); DoorIt; ++DoorIt)
+	{
+		bHasDoor = true;
+		break;
+	}
+	for (TActorIterator<AMurderAtMidnightWeapon> WeaponIt(World); WeaponIt; ++WeaponIt)
+	{
+		bHasWeapon = true;
+		break;
+	}
 
-	if (bHasKey && bHasCabinet)
+	if (bHasKey && bHasCabinet && bHasDoor && bHasWeapon)
 	{
 		return;
 	}
@@ -93,7 +106,19 @@ void AMurderAtMidnightGameMode::SpawnTestKeyAndCabinet()
 		World->SpawnActor<AMurderAtMidnightCabinet>(CabinetLocation, Facing, Params);
 	}
 
-	UE_LOG(LogMurderAtMidnight, Log, TEXT("Spawned the test key and cabinet in front of the player start."));
+	if (!bHasDoor)
+	{
+		const FVector DoorLocation = Origin + Forward * 280.0f - Right * 180.0f + FVector(0.0f, 0.0f, 100.0f);
+		World->SpawnActor<AMurderAtMidnightDoor>(DoorLocation, Facing, Params);
+	}
+
+	if (!bHasWeapon)
+	{
+		const FVector WeaponLocation = Origin + Forward * 160.0f + Right * 80.0f + FVector(0.0f, 0.0f, 40.0f);
+		World->SpawnActor<AMurderAtMidnightWeapon>(WeaponLocation, FRotator::ZeroRotator, Params);
+	}
+
+	UE_LOG(LogMurderAtMidnight, Log, TEXT("Spawned the test key, cabinet, door, and weapon in front of the player start."));
 }
 
 void AMurderAtMidnightGameMode::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -131,6 +156,7 @@ void AMurderAtMidnightGameMode::PostLogin(APlayerController* NewPlayer)
 	if (bRolesAssigned)
 	{
 		MarkAlive(NewPlayer);
+		AssignAgendas();
 	}
 	SendPrivateRole(MatchController);
 }
@@ -166,16 +192,9 @@ void AMurderAtMidnightGameMode::GatherPlayers(TArray<AMurderAtMidnightPlayerCont
 
 int32 AMurderAtMidnightGameMode::TargetCountForLobby(int32 PlayerCount) const
 {
-	int32 Count = 1;
-	if (PlayerCount >= 7)
-	{
-		Count = 3;
-	}
-	else if (PlayerCount >= 5)
-	{
-		Count = 2;
-	}
-
+	// Killing every target leaves the killer and two guests who were never targets.
+	// Two or three players cannot spare that pair, so a test lobby still has one target.
+	const int32 Count = PlayerCount >= 4 ? PlayerCount - 3 : 1;
 	return FMath::Clamp(Count, 0, FMath::Max(0, PlayerCount - 1));
 }
 
@@ -207,6 +226,7 @@ void AMurderAtMidnightGameMode::TryAssignRoles()
 		Targets.Add(Players[Index]);
 	}
 
+	AssignAgendas();
 	bRolesAssigned = true;
 	UE_LOG(LogMurderAtMidnight, Log, TEXT("Assigned roles for %d players."), Players.Num());
 
@@ -214,6 +234,7 @@ void AMurderAtMidnightGameMode::TryAssignRoles()
 	{
 		MarkAlive(Controller);
 		SendPrivateRole(Controller);
+		SendPrivateAgenda(Controller);
 	}
 }
 
@@ -235,9 +256,6 @@ void AMurderAtMidnightGameMode::SendPrivateRole(AMurderAtMidnightPlayerControlle
 
 	if (Controller == Killer)
 	{
-		PrivateAgendas.Remove(Controller);
-		Controller->ClientReceiveAgenda(FString());
-
 		FString TargetNames;
 		for (const TObjectPtr<AMurderAtMidnightPlayerController>& Target : Targets)
 		{
@@ -265,28 +283,28 @@ void AMurderAtMidnightGameMode::SendPrivateRole(AMurderAtMidnightPlayerControlle
 			TargetNames = TEXT("none");
 		}
 
-		Controller->ClientReceiveRole(FString::Printf(TEXT("You are the killer.\nYour targets: %s"), *TargetNames));
+		Controller->ClientReceiveRole(true, TargetNames);
 	}
 	else
 	{
-		Controller->ClientReceiveRole(TEXT("You are a guest."));
+		Controller->ClientReceiveRole(false, FString());
 	}
 
 	UE_LOG(LogMurderAtMidnight, Log, TEXT("Sent a private role to %s."), *GetNameSafe(Controller));
 }
 
-void AMurderAtMidnightGameMode::TryMurder(AMurderAtMidnightPlayerController* Attacker, AMurderAtMidnightPlayerController* Victim, FString& OutMessage)
+bool AMurderAtMidnightGameMode::TryMurder(AMurderAtMidnightPlayerController* Attacker, AMurderAtMidnightPlayerController* Victim, FString& OutMessage)
 {
 	if (!HasAuthority() || !bRolesAssigned || !Attacker || !Victim || Attacker == Victim)
 	{
 		OutMessage = TEXT("The server refused that.");
-		return;
+		return false;
 	}
 
 	if (Attacker != Killer)
 	{
 		OutMessage = TEXT("You cannot do that.");
-		return;
+		return false;
 	}
 
 	AMurderAtMidnightPlayerState* AttackerState = Attacker->GetPlayerState<AMurderAtMidnightPlayerState>();
@@ -294,13 +312,13 @@ void AMurderAtMidnightGameMode::TryMurder(AMurderAtMidnightPlayerController* Att
 	if (!AttackerState || AttackerState->LifeState != EMurderAtMidnightLifeState::Alive || !VictimState)
 	{
 		OutMessage = TEXT("The server refused that.");
-		return;
+		return false;
 	}
 
 	if (VictimState->LifeState != EMurderAtMidnightLifeState::Alive)
 	{
 		OutMessage = TEXT("They are already dead.");
-		return;
+		return false;
 	}
 
 	const bool bWasTarget = Targets.RemoveAll([Victim, VictimState](const TObjectPtr<AMurderAtMidnightPlayerController>& Target)
@@ -324,25 +342,117 @@ void AMurderAtMidnightGameMode::TryMurder(AMurderAtMidnightPlayerController* Att
 
 	SendPrivateRole(Attacker);
 	UE_LOG(LogMurderAtMidnight, Log, TEXT("%s is dead."), *VictimName);
+	if (CountLiving() == 1 && IsAlive(Killer))
+	{
+		EndMatch(EMurderAtMidnightMatchResult::KillerWins, TEXT("Only the killer is left."));
+	}
+	return true;
 }
 
-void AMurderAtMidnightGameMode::EnsureAgendaTexts()
+TArray<FMurderAtMidnightAgendaRow> AMurderAtMidnightGameMode::CollectAgendaRows() const
 {
-	if (AgendaTexts.Num() > 0)
+	TArray<FMurderAtMidnightAgendaRow> Rows;
+	if (AgendaTable)
+	{
+		TArray<FMurderAtMidnightAgendaRow*> Found;
+		AgendaTable->GetAllRows(TEXT("Agendas"), Found);
+		for (const FMurderAtMidnightAgendaRow* Row : Found)
+		{
+			if (Row && !Row->AgendaText.IsEmpty())
+			{
+				Rows.Add(*Row);
+			}
+		}
+	}
+
+	if (Rows.Num() == 0)
+	{
+		FMurderAtMidnightAgendaRow Cabinet;
+		Cabinet.AgendaText = FText::FromString(TEXT("Find the key to unlock the cabinet, then re-lock the cabinet"));
+		Cabinet.Completion = EMurderAtMidnightAgendaCheck::CabinetUnlockThenLock;
+		Rows.Add(Cabinet);
+	}
+
+	const bool bHasDoorAgenda = Rows.ContainsByPredicate([](const FMurderAtMidnightAgendaRow& Row)
+	{
+		return Row.Completion == EMurderAtMidnightAgendaCheck::DoorUnlockWithKey;
+	});
+	if (!bHasDoorAgenda)
+	{
+		FMurderAtMidnightAgendaRow Door;
+		Door.AgendaText = FText::FromString(TEXT("Find the key and unlock the door in the level"));
+		Door.Completion = EMurderAtMidnightAgendaCheck::DoorUnlockWithKey;
+		Rows.Add(Door);
+	}
+
+	return Rows;
+}
+
+void AMurderAtMidnightGameMode::AssignAgendas()
+{
+	if (!HasAuthority() || !Killer)
 	{
 		return;
 	}
 
-	AgendaTexts = {
-		TEXT("Open the cabinet in the hall."),
-		TEXT("Leave the key where another guest will find it."),
-		TEXT("Find out who was in the garden before dinner."),
-		TEXT("Put the portrait in the hall back straight."),
-		TEXT("Return the red book to the library shelf."),
-		TEXT("Learn where the host keeps the wine."),
-		TEXT("Hide the spare glasses in the pantry."),
-		TEXT("Check whether the cellar door is locked.")
+	AssignedAgendas.Reset();
+
+	TArray<AMurderAtMidnightPlayerController*> Players;
+	GatherPlayers(Players);
+	TArray<AMurderAtMidnightPlayerController*> Guests;
+	for (AMurderAtMidnightPlayerController* Player : Players)
+	{
+		if (Player && Player != Killer)
+		{
+			Guests.Add(Player);
+		}
+	}
+	if (Guests.Num() == 0)
+	{
+		return;
+	}
+
+	TArray<FMurderAtMidnightAgendaRow> Rows = CollectAgendaRows();
+	int32 DoorIndex = INDEX_NONE;
+	for (int32 Index = 0; Index < Rows.Num(); ++Index)
+	{
+		if (DoorIndex == INDEX_NONE && Rows[Index].Completion == EMurderAtMidnightAgendaCheck::DoorUnlockWithKey)
+		{
+			DoorIndex = Index;
+		}
+	}
+
+	auto DealRow = [this](AMurderAtMidnightPlayerController* Guest, const FMurderAtMidnightAgendaRow& Row)
+	{
+		FMurderAtMidnightAssignedAgenda Assigned;
+		Assigned.Text = Row.AgendaText.ToString();
+		Assigned.Completion = Row.Completion;
+		AssignedAgendas.Add(Guest, Assigned);
 	};
+
+	if (DoorIndex != INDEX_NONE)
+	{
+		const int32 GuestIndex = FMath::RandRange(0, Guests.Num() - 1);
+		DealRow(Guests[GuestIndex], Rows[DoorIndex]);
+		Guests.RemoveAt(GuestIndex);
+		Rows.RemoveAt(DoorIndex);
+	}
+
+	for (int32 Index = Rows.Num() - 1; Index > 0; --Index)
+	{
+		const int32 SwapIndex = FMath::RandRange(0, Index);
+		Rows.Swap(Index, SwapIndex);
+	}
+
+	for (int32 Index = 0; Index < Guests.Num() && Index < Rows.Num(); ++Index)
+	{
+		DealRow(Guests[Index], Rows[Index]);
+	}
+
+	for (AMurderAtMidnightPlayerController* Player : Players)
+	{
+		SendPrivateAgenda(Player);
+	}
 }
 
 void AMurderAtMidnightGameMode::SendPrivateAgenda(AMurderAtMidnightPlayerController* Controller)
@@ -352,63 +462,360 @@ void AMurderAtMidnightGameMode::SendPrivateAgenda(AMurderAtMidnightPlayerControl
 		return;
 	}
 
-	if (bRolesAssigned && Controller == Killer)
+	if (const FMurderAtMidnightAssignedAgenda* Assigned = AssignedAgendas.Find(Controller))
 	{
-		PrivateAgendas.Remove(Controller);
-		AgendaProgress.Remove(Controller);
-		Controller->ClientReceiveAgenda(FString());
+		Controller->ClientReceiveAgendaState(Assigned->Text, Assigned->bComplete);
+		UE_LOG(LogMurderAtMidnight, Log, TEXT("Sent a private agenda to %s."), *GetNameSafe(Controller));
 		return;
 	}
 
-	if (!AgendaProgress.Contains(Controller))
-	{
-		AgendaProgress.Add(Controller, FMurderAtMidnightAgendaProgress());
-	}
-
-	const FString Line = BuildAgendaLine(Controller);
-	PrivateAgendas.Add(Controller, Line);
-	Controller->ClientReceiveAgenda(Line);
-	UE_LOG(LogMurderAtMidnight, Log, TEXT("Sent a private agenda to %s."), *GetNameSafe(Controller));
-}
-
-FString AMurderAtMidnightGameMode::BuildAgendaLine(const AMurderAtMidnightPlayerController* Controller) const
-{
-	FString Line = TEXT("Find the key to unlock the cabinet, then re-lock the cabinet");
-	if (const FMurderAtMidnightAgendaProgress* Progress = AgendaProgress.Find(Controller))
-	{
-		if (Progress->bComplete)
-		{
-			Line += TEXT(" - Completed");
-		}
-	}
-
-	return Line;
+	Controller->ClientReceiveAgendaState(FString(), false);
 }
 
 void AMurderAtMidnightGameMode::NotifyCabinetLockChanged(AMurderAtMidnightPlayerController* Who, bool bIsOpen)
 {
-	if (!HasAuthority() || !Who || (bRolesAssigned && Who == Killer))
+	if (!HasAuthority() || !Who)
 	{
 		return;
 	}
 
-	FMurderAtMidnightAgendaProgress& Progress = AgendaProgress.FindOrAdd(Who);
-	if (Progress.bComplete)
+	FMurderAtMidnightAssignedAgenda* Progress = AssignedAgendas.Find(Who);
+	if (!Progress || Progress->Completion != EMurderAtMidnightAgendaCheck::CabinetUnlockThenLock)
+	{
+		return;
+	}
+	if (Progress->bComplete)
 	{
 		return;
 	}
 
 	if (bIsOpen)
 	{
-		Progress.bUnlockedCabinet = true;
+		Progress->bUnlockedCabinet = true;
 		return;
 	}
 
-	if (Progress.bUnlockedCabinet)
+	if (Progress->bUnlockedCabinet)
 	{
-		Progress.bComplete = true;
+		Progress->bComplete = true;
 		SendPrivateAgenda(Who);
 		UE_LOG(LogMurderAtMidnight, Log, TEXT("A private agenda was completed."));
+		CheckAgendaWin();
+	}
+}
+
+void AMurderAtMidnightGameMode::NotifyDoorOpened(AMurderAtMidnightPlayerController* Who)
+{
+	if (!HasAuthority() || !Who)
+	{
+		return;
+	}
+
+	FMurderAtMidnightAssignedAgenda* Progress = AssignedAgendas.Find(Who);
+	if (!Progress || Progress->bComplete || Progress->Completion != EMurderAtMidnightAgendaCheck::DoorUnlockWithKey)
+	{
+		return;
+	}
+
+	Progress->bComplete = true;
+	SendPrivateAgenda(Who);
+	UE_LOG(LogMurderAtMidnight, Log, TEXT("A private agenda was completed."));
+	CheckAgendaWin();
+}
+
+bool AMurderAtMidnightGameMode::IsAlive(const AMurderAtMidnightPlayerController* Controller) const
+{
+	const AMurderAtMidnightPlayerState* State = Controller ? Controller->GetPlayerState<AMurderAtMidnightPlayerState>() : nullptr;
+	return State && State->LifeState == EMurderAtMidnightLifeState::Alive;
+}
+
+int32 AMurderAtMidnightGameMode::CountLiving() const
+{
+	TArray<AMurderAtMidnightPlayerController*> Players;
+	GatherPlayers(Players);
+	int32 Living = 0;
+	for (const AMurderAtMidnightPlayerController* Player : Players)
+	{
+		if (IsAlive(Player))
+		{
+			Living++;
+		}
+	}
+	return Living;
+}
+
+bool AMurderAtMidnightGameMode::AllAgendasComplete() const
+{
+	if (AssignedAgendas.Num() == 0)
+	{
+		return false;
+	}
+
+	for (const TPair<TObjectPtr<AMurderAtMidnightPlayerController>, FMurderAtMidnightAssignedAgenda>& Pair : AssignedAgendas)
+	{
+		if (!Pair.Value.bComplete)
+		{
+			return false;
+		}
+	}
+	return true;
+}
+
+bool AMurderAtMidnightGameMode::HasLivingTarget() const
+{
+	for (const TObjectPtr<AMurderAtMidnightPlayerController>& Target : Targets)
+	{
+		if (IsAlive(Target))
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+bool AMurderAtMidnightGameMode::IsGathering(EMurderAtMidnightPhase Phase) const
+{
+	return Phase == EMurderAtMidnightPhase::Arrival
+		|| Phase == EMurderAtMidnightPhase::Dinner
+		|| Phase == EMurderAtMidnightPhase::Garden;
+}
+
+void AMurderAtMidnightGameMode::TellPlayers(const FString& Message)
+{
+	TArray<AMurderAtMidnightPlayerController*> Players;
+	GatherPlayers(Players);
+	for (AMurderAtMidnightPlayerController* Player : Players)
+	{
+		if (Player)
+		{
+			Player->ClientInteractMessage(Message);
+		}
+	}
+}
+
+void AMurderAtMidnightGameMode::EndMatch(EMurderAtMidnightMatchResult Result, const FString& Announcement)
+{
+	AMurderAtMidnightGameState* MatchState = GetGameState<AMurderAtMidnightGameState>();
+	UWorld* World = GetWorld();
+	if (!HasAuthority() || !MatchState || MatchState->MatchResult != EMurderAtMidnightMatchResult::None)
+	{
+		return;
+	}
+
+	if (World)
+	{
+		World->GetTimerManager().ClearTimer(PhaseTimer);
+	}
+
+	Ballots.Empty();
+	bMidnightVote = false;
+	MatchState->FrozenClockMinute = MatchState->GetClockMinute();
+	MatchState->MatchResult = Result;
+	MatchState->bVoteOpen = false;
+	MatchState->bVoteLocked = false;
+	MatchState->Phase = EMurderAtMidnightPhase::Ended;
+	MatchState->PhaseEndsAtServerTime = 0.0;
+	MatchState->ForceNetUpdate();
+	TellPlayers(Announcement);
+	UE_LOG(LogMurderAtMidnight, Log, TEXT("Match ended: %s"), *Announcement);
+}
+
+void AMurderAtMidnightGameMode::CheckAgendaWin()
+{
+	if (AllAgendasComplete())
+	{
+		EndMatch(EMurderAtMidnightMatchResult::GuestsWin, TEXT("Every agenda is finished."));
+	}
+}
+
+void AMurderAtMidnightGameMode::OpenVote(bool bAtMidnight)
+{
+	AMurderAtMidnightGameState* MatchState = GetGameState<AMurderAtMidnightGameState>();
+	if (!MatchState || MatchState->MatchResult != EMurderAtMidnightMatchResult::None)
+	{
+		return;
+	}
+
+	Ballots.Empty();
+	bMidnightVote = bAtMidnight;
+	MatchState->bVoteOpen = true;
+	MatchState->bVoteLocked = false;
+	MatchState->ForceNetUpdate();
+	TArray<AMurderAtMidnightPlayerController*> Players;
+	GatherPlayers(Players);
+	for (AMurderAtMidnightPlayerController* Player : Players)
+	{
+		if (Player)
+		{
+			Player->ClientReceiveVoteChoice(FString());
+		}
+	}
+
+	TellPlayers(TEXT("A vote is open. Look at a living player and click."));
+}
+
+void AMurderAtMidnightGameMode::ResolveVoteIfReady()
+{
+	AMurderAtMidnightGameState* MatchState = GetGameState<AMurderAtMidnightGameState>();
+	if (!MatchState || !MatchState->bVoteOpen)
+	{
+		return;
+	}
+
+	TArray<AMurderAtMidnightPlayerController*> Players;
+	GatherPlayers(Players);
+	TArray<AMurderAtMidnightPlayerController*> Living;
+	for (AMurderAtMidnightPlayerController* Player : Players)
+	{
+		if (IsAlive(Player))
+		{
+			Living.Add(Player);
+		}
+	}
+
+	if (Living.Num() == 0)
+	{
+		return;
+	}
+
+	for (AMurderAtMidnightPlayerController* Player : Living)
+	{
+		if (!Ballots.Contains(Player))
+		{
+			return;
+		}
+	}
+
+	int32 VotesForKiller = 0;
+	for (AMurderAtMidnightPlayerController* Player : Living)
+	{
+		const TObjectPtr<AMurderAtMidnightPlayerController>* Choice = Ballots.Find(Player);
+		if (Choice && *Choice == Killer)
+		{
+			VotesForKiller++;
+		}
+	}
+
+	const bool bMajority = VotesForKiller * 2 > Living.Num();
+	Ballots.Empty();
+	MatchState->bVoteOpen = false;
+
+	if (bMajority)
+	{
+		EndMatch(EMurderAtMidnightMatchResult::GuestsWin, TEXT("The vote named the killer."));
+		return;
+	}
+
+	if (bMidnightVote)
+	{
+		EndMatch(EMurderAtMidnightMatchResult::KillerWins, TEXT("The killer wins."));
+		return;
+	}
+
+	bMidnightVote = false;
+	MatchState->bVoteLocked = true;
+	MatchState->ForceNetUpdate();
+	TellPlayers(TEXT("The vote changed nothing."));
+}
+
+bool AMurderAtMidnightGameMode::TryCallVote(AMurderAtMidnightPlayerController* Who, FString& OutMessage)
+{
+	const AMurderAtMidnightGameState* MatchState = GetGameState<AMurderAtMidnightGameState>();
+	if (!HasAuthority() || !Who || !MatchState || MatchState->MatchResult != EMurderAtMidnightMatchResult::None)
+	{
+		OutMessage = TEXT("The server refused that.");
+		return false;
+	}
+
+	if (!IsAlive(Who))
+	{
+		OutMessage = TEXT("You cannot vote.");
+		return false;
+	}
+
+	if (MatchState->bVoteOpen)
+	{
+		OutMessage = TEXT("A vote is already open.");
+		return false;
+	}
+
+	if (MatchState->Phase == EMurderAtMidnightPhase::Resolution)
+	{
+		OutMessage = TEXT("The midnight vote cannot be called.");
+		return false;
+	}
+
+	if (!IsGathering(MatchState->Phase))
+	{
+		OutMessage = TEXT("A vote waits for a gathering.");
+		return false;
+	}
+
+	if (MatchState->bVoteLocked)
+	{
+		OutMessage = TEXT("Voting is locked until the next gathering.");
+		return false;
+	}
+
+	if (CountLiving() < 2)
+	{
+		OutMessage = TEXT("Not enough living players to vote.");
+		return false;
+	}
+
+	OpenVote(false);
+	OutMessage = TEXT("You called a vote.");
+	return true;
+}
+
+bool AMurderAtMidnightGameMode::TryCastVote(AMurderAtMidnightPlayerController* Who, AMurderAtMidnightPlayerController* Accused, FString& OutMessage)
+{
+	const AMurderAtMidnightGameState* MatchState = GetGameState<AMurderAtMidnightGameState>();
+	if (!HasAuthority() || !Who || !Accused || !MatchState || !MatchState->bVoteOpen)
+	{
+		OutMessage = TEXT("No vote is open.");
+		return false;
+	}
+
+	if (!IsAlive(Who) || !IsAlive(Accused))
+	{
+		OutMessage = TEXT("Look at a living player.");
+		return false;
+	}
+
+	Ballots.Add(Who, Accused);
+	const AMurderAtMidnightPlayerState* AccusedState = Accused->GetPlayerState<AMurderAtMidnightPlayerState>();
+	const FString AccusedName = AccusedState ? AccusedState->GetPlayerName() : TEXT("someone");
+	const FString ChoiceLine = FString::Printf(TEXT("You voted for: %s"), *AccusedName);
+	Who->ClientReceiveVoteChoice(ChoiceLine);
+	OutMessage = ChoiceLine;
+	ResolveVoteIfReady();
+	return true;
+}
+
+void AMurderAtMidnightGameMode::CheckEveningResult()
+{
+	const AMurderAtMidnightGameState* MatchState = GetGameState<AMurderAtMidnightGameState>();
+	if (!HasAuthority() || !bRolesAssigned || !MatchState || MatchState->MatchResult != EMurderAtMidnightMatchResult::None)
+	{
+		return;
+	}
+
+	if (AllAgendasComplete())
+	{
+		EndMatch(EMurderAtMidnightMatchResult::GuestsWin, TEXT("Every agenda is finished."));
+		return;
+	}
+
+	if (HasLivingTarget())
+	{
+		EndMatch(EMurderAtMidnightMatchResult::GuestsWin, TEXT("A target is still alive at midnight."));
+		return;
+	}
+
+	if (CountLiving() >= 3)
+	{
+		OpenVote(true);
 	}
 }
 
@@ -421,20 +828,47 @@ void AMurderAtMidnightGameMode::StartPhase(EMurderAtMidnightPhase NewPhase)
 		return;
 	}
 
+	Ballots.Empty();
+	bMidnightVote = false;
+	MatchState->bVoteOpen = false;
+	MatchState->bVoteLocked = false;
+
 	MatchState->Phase = NewPhase;
+	MatchState->FrozenClockMinute = -1;
 	const float Duration = GetPhaseDuration(NewPhase);
-	MatchState->PhaseEndsAtServerTime = Duration > 0.0f
-		? MatchState->GetServerWorldTimeSeconds() + Duration
-		: 0.0;
+	const double Now = MatchState->GetServerWorldTimeSeconds();
+	MatchState->PhaseStartedAtServerTime = Now;
+	MatchState->PhaseDurationSeconds = Duration;
+	MatchState->PhaseEndsAtServerTime = Duration > 0.0f ? Now + Duration : 0.0;
 	MatchState->ForceNetUpdate();
 	UE_LOG(LogMurderAtMidnight, Log, TEXT("Phase is now %d for %.0f seconds."), static_cast<int32>(NewPhase), Duration);
 
-	if (Duration <= 0.0f)
+	World->GetTimerManager().ClearTimer(PhaseTimer);
+	if (Duration > 0.0f)
+	{
+		World->GetTimerManager().SetTimer(PhaseTimer, this, &AMurderAtMidnightGameMode::AdvancePhase, Duration, false);
+	}
+
+	if (NewPhase == EMurderAtMidnightPhase::Resolution)
+	{
+		CheckEveningResult();
+	}
+}
+
+void AMurderAtMidnightGameMode::SkipToNextPhase()
+{
+	if (!HasAuthority())
 	{
 		return;
 	}
 
-	World->GetTimerManager().SetTimer(PhaseTimer, this, &AMurderAtMidnightGameMode::AdvancePhase, Duration, false);
+	const AMurderAtMidnightGameState* MatchState = GetGameState<AMurderAtMidnightGameState>();
+	if (!MatchState || MatchState->MatchResult != EMurderAtMidnightMatchResult::None)
+	{
+		return;
+	}
+
+	AdvancePhase();
 }
 
 void AMurderAtMidnightGameMode::AdvancePhase()
@@ -456,9 +890,6 @@ void AMurderAtMidnightGameMode::AdvancePhase()
 	case EMurderAtMidnightPhase::Garden:
 		StartPhase(EMurderAtMidnightPhase::Resolution);
 		break;
-	case EMurderAtMidnightPhase::Resolution:
-		StartPhase(EMurderAtMidnightPhase::Ended);
-		break;
 	default:
 		break;
 	}
@@ -471,7 +902,6 @@ float AMurderAtMidnightGameMode::GetPhaseDuration(EMurderAtMidnightPhase Phase) 
 	case EMurderAtMidnightPhase::Arrival: return ArrivalDurationSeconds;
 	case EMurderAtMidnightPhase::Dinner: return DinnerDurationSeconds;
 	case EMurderAtMidnightPhase::Garden: return GardenDurationSeconds;
-	case EMurderAtMidnightPhase::Resolution: return ResolutionDurationSeconds;
 	default: return 0.0f;
 	}
 }

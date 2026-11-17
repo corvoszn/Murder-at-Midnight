@@ -18,7 +18,7 @@ public:
 	AMurderAtMidnightKey();
 
 private:
-	/** Round pickup volume. The visible mesh stays smaller than this. */
+	/** Look target only. The mesh owns the physical shape. */
 	UPROPERTY(VisibleAnywhere, Category = "Components")
 	TObjectPtr<USphereComponent> PickupVolume;
 };

@@ -131,10 +131,16 @@ The hit list is private to the killer.
 
 The number of targets depends on the lobby size.
 
-| Players | Targets |
-| --- | --- |
-| 5–6 | 2 |
-| 7–8 | 3 |
+| Players | Targets | Guests who were never targets |
+| --- | --- | --- |
+| 2–3 | 1 | A test lobby. There are not two guests to spare. |
+| 4 | 1 | 2 |
+| 5 | 2 | 2 |
+| 6 | 3 | 2 |
+| 7 | 4 | 2 |
+| 8 | 5 | 2 |
+
+The list is sized so that killing every target leaves the killer and two guests who were never targets. Those three living people are the midnight vote. A two- or three-player test still has one target, because that lobby cannot spare two guests.
 
 There is no rule that exactly three players must be alive at the end.
 
@@ -144,11 +150,11 @@ Targets are assigned for the match. When a target leaves the game, the list gets
 
 ### 3.4 The Strongest Killer Plan
 
-In a five-player match the cast is the killer, two targets, and two other guests.
+In a six-player match the cast is the killer, three targets, and two other guests.
 
-The strongest plan is to kill the two targets and leave the other two guests alive. Midnight is then a vote among those three living people. The killer wins that vote if the two guests do not both name the killer.
+The strongest plan is to kill every target and leave those two guests alive. Midnight is then a vote among those three living people. The killer wins that vote if the two guests do not both name the killer. A five-player match has the same shape with two targets.
 
-Killing a witness is allowed. It does not end the killer's chance to win. It can lead to the hunt in section 5.
+Killing a guest who was never a target is allowed. That death does not count, and nobody is added in their place. If it leaves only the killer and one guest, the Final Hunt in section 5 starts.
 
 ## 4. Voting
 
@@ -172,19 +178,48 @@ Players may also force the issue earlier, at a gathering. A successful vote ends
 
 ## 5. The Final Hunt
 
-The hunt starts when a death or a disconnect leaves exactly two living people. Those two are the killer and one guest.
+The Final Hunt is the game's endgame. It shifts the evening from social deduction to a tense game of hide-and-seek between the killer and the final surviving guest.
 
-The host announces, throughout the manor, that only two people are alive: the killer and one guest. The announcement does not say who is who.
+This loop is written here. It is not in the playable build yet.
 
-Voting closes. With only one guest left, a vote would have only one possible answer.
+### 5.1 Trigger
 
-The clock speeds up. The hunt lasts a few minutes, even if the deaths happened early in the evening. The exact length can be tuned in playtests. It should feel like a climax, not a second full match.
+- The killer eliminates another guest, leaving only themselves and one living guest.
+- A disconnect that leaves the same pair starts the hunt the same way.
+- The host announces that only two living players remain, without revealing their identities.
+- Voting closes and the Final Hunt begins.
 
-From here:
+### 5.2 The Search
 
-- If the last guest is alive when that clock ends, the guests win. This is true even if that guest was never a target, and even if every target is already dead.
-- If the killer kills the last guest before the clock ends, the killer wins. If that guest was a remaining target, the kill also completes the list.
-- Agendas stay active during the hunt. Rats, and the guest who is hiding, can still finish them. If every remaining agenda is completed before the catch, the guests win. The catch itself ends the match, so the agendas have to be finished first.
+- The game transitions into a one-versus-one survival scenario.
+- The manor becomes the hunting ground.
+- The killer must locate and eliminate the final guest.
+- The guest must avoid being found and survive until the timer expires.
+- Neither player has direct knowledge of the other's location.
+
+### 5.3 Gameplay
+
+The killer:
+
+- Searches the manor for the remaining guest.
+- Uses environmental sounds and observations to track them.
+- Must actively hunt rather than rely on the social deduction mechanics of the main evening.
+
+The surviving guest:
+
+- Uses the manor's rooms, corridors, and alternative routes to evade the killer.
+- Can hide, misdirect, and use environmental interactions to create opportunities to escape.
+- Must manage their movement carefully to avoid being discovered.
+
+### 5.4 Victory
+
+The killer wins if they find and eliminate the final surviving guest before the timer expires. If that guest was a remaining target, the kill also completes the list.
+
+The guests win if the surviving guest remains alive until the Final Hunt timer expires. This is true even if that guest was never a target, and even if every target is already dead.
+
+The hunt clock lasts a few minutes, even if the deaths happened early in the evening. The length can be tuned in playtests. It should feel like a climax, not a second full match.
+
+Agendas stay active during the hunt. Rats, and the guest who is hiding, can still finish them. If every remaining agenda is completed before the catch, the guests win. The catch itself ends the match, so the agendas have to be finished first.
 
 If the killer is the only living person left, the killer wins. There is no guest left to hide, vote, or survive.
 
@@ -397,7 +432,7 @@ These numbers can change after playtests. They are not undecided rules.
 - The sped-up hunt lasts a few minutes.
 - The compulsory assignment lasts a few minutes.
 - A rat is warned after a couple of minutes with no input.
-- A five- or six-player match has two targets. A seven- or eight-player match has three.
+- From four players upward, the target count is the lobby size minus three. A six-player match has three targets. A two- or three-player test still has one.
 - Poison's delay, and how hard a witnessed murder is to land, will need to be felt in a real session.
 
 The rules those numbers serve are already set. They are in sections 2.3, 3, 4, 5, 6, and 10.

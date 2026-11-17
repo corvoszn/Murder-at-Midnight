@@ -219,9 +219,10 @@ Phases:
 2. Arrival.
 3. Dinner.
 4. Garden.
-5. Resolution, at midnight, when three or more people are alive.
-6. Hunt, when only the killer and one guest are alive.
-7. Ended.
+5. Resolution, at midnight. The clock stops at 00:00. This is the final check, not another period of play.
+6. Ended.
+
+The hunt is written in GDD section 5. It is not in this build.
 
 Arrival, dinner, and garden are gatherings. Players can keep walking. The phase tells the host what to announce and tells the server when a vote may be called. Missing a gathering has no mechanical penalty.
 
@@ -229,12 +230,11 @@ The server checks wins in this order:
 
 1. Every agenda still in the match is complete. The guests win.
 2. A vote is open and a majority of living players name the killer. The guests win. Any other ballot changes nothing and closes voting until the next gathering.
-3. At midnight, with three or more living players: a living target means the guests win. If every target is already dead, the server opens the vote. The killer wins only if that vote does not name them.
-4. If a death or a disconnect leaves the killer and one guest, the server starts the hunt and shortens the clock. The last guest alive at the end means the guests win. The killer catching them means the killer wins. Agendas can still finish before the catch.
-5. If only the killer remains, the killer wins.
-6. If the killer disconnects, the guests win.
+3. At midnight, with three or more living players: a living target means the guests win. If every target is already dead, the server opens the vote. The killer wins only if that vote does not name them. Fewer than three living players do not take that vote.
+4. If only the killer remains, the killer wins.
+5. If the killer disconnects, the guests win.
 
-A target who disconnects is removed from the list. That is not a kill. No new target is added. The list is one name shorter. If that leaves the killer and one guest, the hunt starts.
+A target who disconnects is removed from the list. That is not a kill. No new target is added. The list is one name shorter.
 
 Death is a server step. The PlayerState becomes rat. The same controller possesses the rat pawn. The agenda stays with that PlayerState. A rat who does nothing for a couple of minutes is warned, then their agenda is dropped. Walking counts as present. A rat who is present and refuses the agenda stays in the set.
 
@@ -249,12 +249,13 @@ Blueprint and data own the parts you will want to change without a code change: 
 | In C++ | In Blueprint or data assets |
 | --- | --- |
 | Phase machine and win checks | Phase lengths |
-| Role and target assignment | How many targets, already set by the GDD, exposed as a number you can tune |
+| Role and target assignment | From four players up, targets are the lobby size minus three. A two- or three-player test still has one target. |
 | Private RPCs | The words shown for an agenda |
 | Interaction validation | Prompt text, highlight, animation |
 | Inventory and lock checks | Which key opens which door |
 | Agenda completion checks | The agenda list and its object ids |
 | Life state and possession of the rat | Rat mesh, corpse mesh, host announcement |
+| Pickup, drop, and holding an object still in view. Simulation is off while it is held. A dropped object ignores the player so a walk cannot push it through the floor | Collision shape, mass, drag, and Simulate Physics on that object's Blueprint. Notes are in [Systems/Physics.md](Systems/Physics.md) |
 
 A Blueprint may react to a phase change and play a line. It may not decide that the guests have won. The GameMode does that, then tells the GameState, then Blueprint reads the result.
 

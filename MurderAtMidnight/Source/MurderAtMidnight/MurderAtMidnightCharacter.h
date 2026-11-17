@@ -84,6 +84,8 @@ protected:
 	void InteractPressed();
 	void DropPressed();
 	void KillPressed();
+	void VotePressed();
+	void SkipPhasePressed();
 
 public:
 
@@ -108,6 +110,35 @@ public:
 	UCameraComponent* GetFirstPersonCameraComponent() const { return FirstPersonCameraComponent; }
 
 	UMurderAtMidnightInventoryComponent* GetInventory() const { return Inventory; }
+
+	/** Seconds before this mass is in the player's hand. */
+	float GetPickupDelay(float MassKg) const;
+
+	/** Slow walking while this mass is being carried. The server calls this. */
+	void ApplyCarryMass(float MassKg);
+
+	/** Put the walk speed back. The server calls this. */
+	void ClearCarryMass();
+
+private:
+	/** Kilograms that count as a fully heavy carry. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Carry", meta = (AllowPrivateAccess = "true", ClampMin = "1"))
+	float HeavyMassKg = 20.0f;
+
+	/** Walk speed at Heavy Mass Kg, as a fraction of normal. 0.5 is half speed. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Carry", meta = (AllowPrivateAccess = "true", ClampMin = "0.1", ClampMax = "1"))
+	float SlowestWalkScale = 0.5f;
+
+	/** Pickup time for a weightless object, in seconds. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Carry", meta = (AllowPrivateAccess = "true", ClampMin = "0"))
+	float LightPickupSeconds = 0.05f;
+
+	/** Pickup time at Heavy Mass Kg, in seconds. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Carry", meta = (AllowPrivateAccess = "true", ClampMin = "0"))
+	float HeavyPickupSeconds = 1.2f;
+
+	float SavedMaxWalkSpeed = 0.0f;
+	bool bCarrySlowApplied = false;
 
 };
 

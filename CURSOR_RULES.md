@@ -6,9 +6,11 @@ These rules apply to every Cursor agent working in this project.
 
 Before changing systems, read [GDD.md](GDD.md) and [ARCHITECTURE.md](ARCHITECTURE.md). The GDD is the game. The architecture file is the Unreal layout. If they disagree, stop and ask.
 
+Notes for one system at a time live in [Systems/README.md](Systems/README.md). Read the note for the system you are changing. Add a new note only when the user asks for one.
+
 ## Do not get ahead of approval
 
-Steps 1 to 5 are in the project. A server-checked kill is in. Do not start the vote, the hunt, or the rat until the user asks for that step.
+Steps 1 to 5 are in the project. A server-checked kill is in. The evening result is in. Do not start the hunt or the rat until the user asks for that step.
 
 Do not create a second Unreal project. Do not implement murder, roles, agendas, votes, the hunt, rats, or voice unless that step was requested.
 
@@ -63,3 +65,5 @@ Explain an architecture change before making it. Do not rewrite a system the use
 Keep explanations in plain sentences. Name the class that owns a fact, and name who receives it.
 
 Do not commit unless the user asks.
+
+PowerShell lines for git, starting the agent, and building the game are in [AGENT_COMMANDS.md](AGENT_COMMANDS.md).

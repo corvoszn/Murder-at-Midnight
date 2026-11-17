@@ -1,0 +1,13 @@
+---
+description: Hold, drop, weight, and collision for carried objects
+globs: MurderAtMidnight/Source/MurderAtMidnight/MurderAtMidnightInteractableComponent.*,MurderAtMidnight/Source/MurderAtMidnight/MurderAtMidnightKey.*,MurderAtMidnight/Source/MurderAtMidnight/MurderAtMidnightProp.*,MurderAtMidnight/Source/MurderAtMidnight/MurderAtMidnightWeapon.*
+alwaysApply: false
+---
+
+# Hold and drop
+
+Read `Systems/Physics.md` before changing pickup, drop, hold, weight, or object collision.
+
+The held object stays on a point in front of the camera. Simulation is off while it is held. Collision with the world stays on. A dropped key or weapon ignores players so a walk cannot push it through the floor. Doors and cabinets still block players.
+
+Weight changes pickup time and walk speed only. Mass, collision shape, and Simulate Physics stay on the object's Blueprint.

@@ -11,13 +11,37 @@
 #include "MurderAtMidnight.h"
 #include "MurderAtMidnightCharacter.h"
 #include "MurderAtMidnightInteractableComponent.h"
-#include "MurderAtMidnightKey.h"
+#include "MurderAtMidnightProp.h"
 #include "MurderAtMidnightGameMode.h"
 #include "MurderAtMidnightPlayerState.h"
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "EngineUtils.h"
 #include "Widgets/Input/SVirtualJoystick.h"
+
+namespace
+{
+	UMurderAtMidnightInteractableComponent* FindHeld(UWorld* World, AMurderAtMidnightCharacter* Who)
+	{
+		if (!World || !Who)
+		{
+			return nullptr;
+		}
+
+		for (TActorIterator<AMurderAtMidnightProp> It(World); It; ++It)
+		{
+			if (UMurderAtMidnightInteractableComponent* Interactable = It->GetInteractable())
+			{
+				if (Interactable->GetCarrier() == Who)
+				{
+					return Interactable;
+				}
+			}
+		}
+
+		return nullptr;
+	}
+}
 
 AMurderAtMidnightPlayerController::AMurderAtMidnightPlayerController()
 {
@@ -59,7 +83,10 @@ void AMurderAtMidnightPlayerController::ShowPhaseWidget()
 		return;
 	}
 
-	PhaseWidget = CreateWidget<UMurderAtMidnightPhaseWidget>(this, UMurderAtMidnightPhaseWidget::StaticClass());
+	const TSubclassOf<UMurderAtMidnightPhaseWidget> WidgetClass = PhaseWidgetClass
+		? PhaseWidgetClass
+		: TSubclassOf<UMurderAtMidnightPhaseWidget>(UMurderAtMidnightPhaseWidget::StaticClass());
+	PhaseWidget = CreateWidget<UMurderAtMidnightPhaseWidget>(this, WidgetClass);
 	if (PhaseWidget)
 	{
 		PhaseWidget->AddToViewport(1000);
@@ -159,6 +186,39 @@ void AMurderAtMidnightPlayerController::RequestKill()
 	ServerRequestKill(ViewStart, ViewRotation.Vector());
 }
 
+void AMurderAtMidnightPlayerController::RequestVote()
+{
+	if (!IsLocalController())
+	{
+		return;
+	}
+
+	ServerRequestVote();
+}
+
+void AMurderAtMidnightPlayerController::RequestSkipPhase()
+{
+	if (!IsLocalController())
+	{
+		return;
+	}
+
+	ServerRequestSkipPhase();
+}
+
+void AMurderAtMidnightPlayerController::RequestCastVote()
+{
+	if (!IsLocalController())
+	{
+		return;
+	}
+
+	FVector ViewStart = FVector::ZeroVector;
+	FRotator ViewRotation = FRotator::ZeroRotator;
+	GetPlayerViewPoint(ViewStart, ViewRotation);
+	ServerRequestCastVote(ViewStart, ViewRotation.Vector());
+}
+
 bool AMurderAtMidnightPlayerController::IsDead() const
 {
 	const AMurderAtMidnightPlayerState* State = GetPlayerState<AMurderAtMidnightPlayerState>();
@@ -189,6 +249,13 @@ bool AMurderAtMidnightPlayerController::TraceAlongView(const FVector& ViewStart,
 	TArray<AActor*> Attached;
 	Self->GetAttachedActors(Attached, true, true);
 	Params.AddIgnoredActors(Attached);
+	if (UMurderAtMidnightInteractableComponent* Held = FindHeld(World, Self))
+	{
+		if (AActor* HeldActor = Held->GetOwner())
+		{
+			Params.AddIgnoredActor(HeldActor);
+		}
+	}
 
 	const FCollisionShape SweepShape = FCollisionShape::MakeSphere(16.0f);
 	return World->SweepSingleByChannel(OutHit, Start, End, FQuat::Identity, ECC_Visibility, SweepShape, Params);
@@ -213,21 +280,7 @@ void AMurderAtMidnightPlayerController::ServerRequestInteract_Implementation(FVe
 	FString Message;
 	if (AMurderAtMidnightCharacter* Other = Cast<AMurderAtMidnightCharacter>(Hit.GetActor()))
 	{
-		UMurderAtMidnightInteractableComponent* Held = nullptr;
-		if (UWorld* World = GetWorld())
-		{
-			for (TActorIterator<AMurderAtMidnightKey> It(World); It; ++It)
-			{
-				if (UMurderAtMidnightInteractableComponent* Interactable = It->GetInteractable())
-				{
-					if (Interactable->GetCarrier() == Self)
-					{
-						Held = Interactable;
-						break;
-					}
-				}
-			}
-		}
+		UMurderAtMidnightInteractableComponent* Held = FindHeld(GetWorld(), Self);
 
 		if (!Held)
 		{
@@ -261,18 +314,7 @@ void AMurderAtMidnightPlayerController::ServerRequestDrop_Implementation(FVector
 		return;
 	}
 
-	UMurderAtMidnightInteractableComponent* Held = nullptr;
-	for (TActorIterator<AMurderAtMidnightKey> It(World); It; ++It)
-	{
-		if (UMurderAtMidnightInteractableComponent* Interactable = It->GetInteractable())
-		{
-			if (Interactable->GetCarrier() == Self)
-			{
-				Held = Interactable;
-				break;
-			}
-		}
-	}
+	UMurderAtMidnightInteractableComponent* Held = FindHeld(World, Self);
 
 	FString Message;
 	if (!Held)
@@ -309,6 +351,13 @@ void AMurderAtMidnightPlayerController::ServerRequestKill_Implementation(FVector
 	if (!MatchMode || !Self)
 	{
 		ClientInteractMessage(TEXT("The server refused that."));
+		return;
+	}
+
+	UMurderAtMidnightInteractableComponent* Weapon = FindHeld(World, Self);
+	if (!Weapon || !Weapon->IsWeapon())
+	{
+		ClientInteractMessage(TEXT("You are not holding a weapon."));
 		return;
 	}
 
@@ -350,9 +399,74 @@ void AMurderAtMidnightPlayerController::ServerRequestKill_Implementation(FVector
 	}
 
 	FString Message;
-	MatchMode->TryMurder(this, Victim, Message);
+	if (MatchMode->TryMurder(this, Victim, Message))
+	{
+		Weapon->ServerMarkBloody();
+	}
 	UE_LOG(LogMurderAtMidnight, Log, TEXT("A kill was requested."));
 	ClientInteractMessage(Message);
+}
+
+void AMurderAtMidnightPlayerController::ServerRequestSkipPhase_Implementation()
+{
+	AMurderAtMidnightGameMode* MatchMode = GetWorld() ? GetWorld()->GetAuthGameMode<AMurderAtMidnightGameMode>() : nullptr;
+	if (!MatchMode)
+	{
+		return;
+	}
+
+	MatchMode->SkipToNextPhase();
+}
+
+void AMurderAtMidnightPlayerController::ServerRequestVote_Implementation()
+{
+	AMurderAtMidnightGameMode* MatchMode = GetWorld() ? GetWorld()->GetAuthGameMode<AMurderAtMidnightGameMode>() : nullptr;
+	if (!MatchMode || IsDead())
+	{
+		ClientInteractMessage(TEXT("The server refused that."));
+		return;
+	}
+
+	FString Message;
+	MatchMode->TryCallVote(this, Message);
+	ClientInteractMessage(Message);
+}
+
+void AMurderAtMidnightPlayerController::ServerRequestCastVote_Implementation(FVector ViewStart, FVector ViewAim)
+{
+	AMurderAtMidnightGameMode* MatchMode = GetWorld() ? GetWorld()->GetAuthGameMode<AMurderAtMidnightGameMode>() : nullptr;
+	if (!MatchMode || IsDead())
+	{
+		ClientInteractMessage(TEXT("The server refused that."));
+		return;
+	}
+
+	FHitResult Hit;
+	AMurderAtMidnightPlayerController* Accused = nullptr;
+	if (TraceAlongView(ViewStart, ViewAim, Hit) && Hit.GetActor())
+	{
+		if (AMurderAtMidnightCharacter* Other = Cast<AMurderAtMidnightCharacter>(Hit.GetActor()))
+		{
+			Accused = Cast<AMurderAtMidnightPlayerController>(Other->GetController());
+		}
+	}
+
+	FString Message;
+	if (!Accused)
+	{
+		Message = TEXT("Look at a living player.");
+	}
+	else
+	{
+		MatchMode->TryCastVote(this, Accused, Message);
+	}
+
+	ClientInteractMessage(Message);
+}
+
+void AMurderAtMidnightPlayerController::ClientReceiveVoteChoice_Implementation(const FString& Line)
+{
+	VoteChoice = Line;
 }
 
 void AMurderAtMidnightPlayerController::ClientInteractMessage_Implementation(const FString& Message)
@@ -371,14 +485,17 @@ void AMurderAtMidnightPlayerController::ServerRequestPrivateAgenda_Implementatio
 	}
 }
 
-void AMurderAtMidnightPlayerController::ClientReceiveAgenda_Implementation(const FString& AgendaText)
+void AMurderAtMidnightPlayerController::ClientReceiveAgendaState_Implementation(const FString& AgendaText, bool bInComplete)
 {
 	PrivateAgenda = AgendaText;
+	bAgendaComplete = bInComplete;
 }
 
-void AMurderAtMidnightPlayerController::ClientReceiveRole_Implementation(const FString& RoleText)
+void AMurderAtMidnightPlayerController::ClientReceiveRole_Implementation(bool bInIsKiller, const FString& InTargetNames)
 {
-	PrivateRole = RoleText;
+	bRoleReceived = true;
+	bIsKiller = bInIsKiller;
+	TargetNames = InTargetNames;
 }
 
 bool AMurderAtMidnightPlayerController::ShouldUseTouchControls() const

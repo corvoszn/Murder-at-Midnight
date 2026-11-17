@@ -45,25 +45,41 @@ public:
 	/** Local input. Asks the server to attack the player being looked at. */
 	void RequestKill();
 
+	/** Local input. Asks the server to call a vote. */
+	void RequestVote();
+
+	/** Local input. Asks the server to skip to the next evening stage. Testing only. */
+	void RequestSkipPhase();
+
+	/** Local input. Asks the server to name the living player being looked at. */
+	void RequestCastVote();
+
+	const FString& GetVoteChoice() const { return VoteChoice; }
+
 	const FString& GetLastInteractMessage() const { return LastInteractMessage; }
 
-	/** This player's agenda. Set by a client RPC. It is not replicated. */
+	bool HasAgenda() const { return !PrivateAgenda.IsEmpty(); }
+	bool IsAgendaComplete() const { return bAgendaComplete; }
 	const FString& GetPrivateAgenda() const { return PrivateAgenda; }
+	bool HasRole() const { return bRoleReceived; }
+	bool IsKiller() const { return bIsKiller; }
+	const FString& GetTargetNames() const { return TargetNames; }
 
-	/** This player's role. Set by a client RPC. It is not replicated. */
-	const FString& GetPrivateRole() const { return PrivateRole; }
-
-	/** This player's agenda. Sent only to this controller. */
+	/** This player's agenda sentence, and whether it is done. Sent only to this controller. */
 	UFUNCTION(Client, Reliable)
-	void ClientReceiveAgenda(const FString& AgendaText);
+	void ClientReceiveAgendaState(const FString& AgendaText, bool bInComplete);
 
-	/** This player's role. Sent only to this controller. */
+	/** This player's role. Sent only to this controller. Target names are included for the killer. */
 	UFUNCTION(Client, Reliable)
-	void ClientReceiveRole(const FString& RoleText);
+	void ClientReceiveRole(bool bInIsKiller, const FString& InTargetNames);
 
 	/** Result of this player's last request. Sent only to this controller. */
 	UFUNCTION(Client, Reliable)
 	void ClientInteractMessage(const FString& Message);
+
+	/** This player's own vote line. Sent only to this controller. */
+	UFUNCTION(Client, Reliable)
+	void ClientReceiveVoteChoice(const FString& Line);
 
 protected:
 
@@ -92,6 +108,10 @@ protected:
 
 	void ShowPhaseWidget();
 
+	/** Widget Blueprint that draws the match text. Empty shows no match text. */
+	UPROPERTY(EditDefaultsOnly, Category = "UI")
+	TSubclassOf<UMurderAtMidnightPhaseWidget> PhaseWidgetClass;
+
 	/** Phase and countdown. Created for the local player only. */
 	UPROPERTY()
 	TObjectPtr<UMurderAtMidnightPhaseWidget> PhaseWidget;
@@ -108,6 +128,15 @@ protected:
 	UFUNCTION(Server, Reliable)
 	void ServerRequestKill(FVector ViewStart, FVector ViewAim);
 
+	UFUNCTION(Server, Reliable)
+	void ServerRequestVote();
+
+	UFUNCTION(Server, Reliable)
+	void ServerRequestSkipPhase();
+
+	UFUNCTION(Server, Reliable)
+	void ServerRequestCastVote(FVector ViewStart, FVector ViewAim);
+
 	/** Asks the server to repeat this player's own agenda. The client does not choose the text. */
 	UFUNCTION(Server, Reliable)
 	void ServerRequestPrivateAgenda();
@@ -119,11 +148,23 @@ protected:
 	/** Not replicated. Filled by ClientInteractMessage. */
 	FString LastInteractMessage;
 
-	/** Not replicated. Filled by ClientReceiveAgenda. */
+	/** Not replicated. Filled by ClientReceiveAgendaState. */
 	FString PrivateAgenda;
 
+	/** Not replicated. Filled by ClientReceiveAgendaState. */
+	bool bAgendaComplete = false;
+
 	/** Not replicated. Filled by ClientReceiveRole. */
-	FString PrivateRole;
+	bool bRoleReceived = false;
+
+	/** Not replicated. Filled by ClientReceiveRole. */
+	bool bIsKiller = false;
+
+	/** Not replicated. Killer target names. Filled by ClientReceiveRole. */
+	FString TargetNames;
+
+	/** Not replicated. Filled by ClientReceiveVoteChoice. */
+	FString VoteChoice;
 
 	/** Returns true if the player should use UMG touch controls */
 	bool ShouldUseTouchControls() const;
