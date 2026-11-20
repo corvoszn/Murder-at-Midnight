@@ -74,7 +74,8 @@ void AMurderAtMidnightCharacter::SetupPlayerInputComponent(UInputComponent* Play
 	PlayerInputComponent->BindKey(EKeys::F, IE_Pressed, this, &AMurderAtMidnightCharacter::InteractPressed);
 	PlayerInputComponent->BindKey(EKeys::G, IE_Pressed, this, &AMurderAtMidnightCharacter::DropPressed);
 	PlayerInputComponent->BindKey(EKeys::K, IE_Pressed, this, &AMurderAtMidnightCharacter::KillPressed);
-	PlayerInputComponent->BindKey(EKeys::LeftMouseButton, IE_Pressed, this, &AMurderAtMidnightCharacter::KillPressed);
+	PlayerInputComponent->BindKey(EKeys::LeftMouseButton, IE_Pressed, this, &AMurderAtMidnightCharacter::PrimaryClickPressed);
+	PlayerInputComponent->BindKey(EKeys::LeftMouseButton, IE_Released, this, &AMurderAtMidnightCharacter::PrimaryClickReleased);
 	PlayerInputComponent->BindKey(EKeys::V, IE_Pressed, this, &AMurderAtMidnightCharacter::VotePressed);
 	PlayerInputComponent->BindKey(EKeys::P, IE_Pressed, this, &AMurderAtMidnightCharacter::SkipPhasePressed);
 }
@@ -182,6 +183,22 @@ void AMurderAtMidnightCharacter::KillPressed()
 	}
 }
 
+void AMurderAtMidnightCharacter::PrimaryClickPressed()
+{
+	if (AMurderAtMidnightPlayerController* MatchController = Cast<AMurderAtMidnightPlayerController>(GetController()))
+	{
+		MatchController->RequestPrimaryPress();
+	}
+}
+
+void AMurderAtMidnightCharacter::PrimaryClickReleased()
+{
+	if (AMurderAtMidnightPlayerController* MatchController = Cast<AMurderAtMidnightPlayerController>(GetController()))
+	{
+		MatchController->RequestPrimaryRelease();
+	}
+}
+
 void AMurderAtMidnightCharacter::VotePressed()
 {
 	if (AMurderAtMidnightPlayerController* MatchController = Cast<AMurderAtMidnightPlayerController>(GetController()))
@@ -202,6 +219,15 @@ float AMurderAtMidnightCharacter::GetPickupDelay(float MassKg) const
 {
 	const float Alpha = FMath::Clamp(MassKg / FMath::Max(HeavyMassKg, 1.0f), 0.0f, 1.0f);
 	return FMath::Lerp(LightPickupSeconds, HeavyPickupSeconds, Alpha);
+}
+
+float AMurderAtMidnightCharacter::GetThrowSpeed(float MassKg, float HoldSeconds) const
+{
+	const float MassAlpha = FMath::Clamp(MassKg / FMath::Max(HeavyMassKg, 1.0f), 0.0f, 1.0f);
+	const float WeightSpeed = FMath::Lerp(LightThrowSpeed, HeavyThrowSpeed, MassAlpha);
+	const float Span = FMath::Max(MaxThrowHoldSeconds - MinThrowHoldSeconds, 0.01f);
+	const float Charge = FMath::Clamp((HoldSeconds - MinThrowHoldSeconds) / Span, 0.0f, 1.0f);
+	return WeightSpeed * FMath::Lerp(MinThrowScale, 1.0f, Charge);
 }
 
 void AMurderAtMidnightCharacter::ApplyCarryMass(float MassKg)

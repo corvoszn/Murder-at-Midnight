@@ -260,6 +260,44 @@ bool UMurderAtMidnightInteractableComponent::ServerDrop(AMurderAtMidnightCharact
 	return true;
 }
 
+bool UMurderAtMidnightInteractableComponent::ServerThrow(AMurderAtMidnightCharacter* Who, const FVector& AimDirection, float HoldSeconds, FString& OutMessage)
+{
+	AActor* OwnerActor = GetOwner();
+	if (!OwnerActor || !OwnerActor->HasAuthority() || !Who || !bCarried || Carrier != Who)
+	{
+		OutMessage = TEXT("You are not holding anything.");
+		return false;
+	}
+
+	if (bHoldPending)
+	{
+		OutMessage = TEXT("It is not in your hand yet.");
+		return false;
+	}
+
+	UMurderAtMidnightInventoryComponent* Inventory = Who->GetInventory();
+	if (!Inventory || !Inventory->TryRemoveItem(ItemId))
+	{
+		OutMessage = TEXT("You are not holding anything.");
+		return false;
+	}
+
+	FVector Direction = AimDirection.GetSafeNormal();
+	if (Direction.IsNearlyZero())
+	{
+		Direction = Who->GetControlRotation().Vector();
+	}
+
+	const float Speed = Who->GetThrowSpeed(CarryMass, HoldSeconds);
+	ReleaseThrown(Who, Direction * Speed);
+	Carrier = nullptr;
+	bCarried = false;
+	ApplyVisual();
+	OwnerActor->ForceNetUpdate();
+	OutMessage = TEXT("You threw it.");
+	return true;
+}
+
 void UMurderAtMidnightInteractableComponent::ServerMarkBloody()
 {
 	AActor* OwnerActor = GetOwner();
@@ -563,7 +601,7 @@ void UMurderAtMidnightInteractableComponent::PlaceAtHold()
 		return;
 	}
 
-	if (Hit.bBlockingHit)
+	if (Hit.bBlockingHit && OwnerActor->HasAuthority())
 	{
 		if (UPrimitiveComponent* Other = Hit.GetComponent())
 		{
@@ -709,13 +747,16 @@ void UMurderAtMidnightInteractableComponent::StartHold(AMurderAtMidnightCharacte
 	}
 
 	Who->ApplyCarryMass(CarryMass);
+	bHeldInView = true;
 	PlaceAtHold();
 	SetComponentTickEnabled(true);
+	OwnerActor->ForceNetUpdate();
 }
 
 void UMurderAtMidnightInteractableComponent::StopHold(AMurderAtMidnightCharacter* Who)
 {
 	bHoldPending = false;
+	bHeldInView = false;
 
 	if (!IgnoredHolder.IsValid())
 	{
@@ -755,6 +796,47 @@ void UMurderAtMidnightInteractableComponent::StopHold(AMurderAtMidnightCharacter
 		}
 		SetComponentTickEnabled(true);
 		return;
+	}
+
+	RestoreHolder();
+	SetComponentTickEnabled(false);
+}
+
+void UMurderAtMidnightInteractableComponent::ReleaseThrown(AMurderAtMidnightCharacter* Who, const FVector& Velocity)
+{
+	bHoldPending = false;
+	bHeldInView = false;
+	bSettlingDrop = false;
+
+	if (!IgnoredHolder.IsValid())
+	{
+		IgnoredHolder = Who;
+	}
+
+	if (Who)
+	{
+		Who->ClearCarryMass();
+	}
+
+	if (AActor* OwnerActor = GetOwner())
+	{
+		MoveClearOfWorld(OwnerActor->GetActorLocation());
+		LeaveTheHolder(Who);
+	}
+
+	UPrimitiveComponent* Body = FindHoldBody();
+	if (bRestorePhysicsOnDrop && Body)
+	{
+		Body->SetSimulatePhysics(true);
+		Body->SetPhysicsLinearVelocity(Velocity);
+		Body->SetPhysicsAngularVelocityInDegrees(FVector::ZeroVector);
+		if (FBodyInstance* Instance = Body->GetBodyInstance())
+		{
+			Instance->SetLinearVelocity(Velocity, false);
+			Instance->SetAngularVelocityInRadians(FVector::ZeroVector, false);
+		}
+		Body->WakeAllRigidBodies();
+		bRestorePhysicsOnDrop = false;
 	}
 
 	RestoreHolder();
@@ -808,8 +890,17 @@ void UMurderAtMidnightInteractableComponent::TickComponent(float DeltaTime, ELev
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
 	AActor* OwnerActor = GetOwner();
-	if (!OwnerActor || !OwnerActor->HasAuthority())
+	if (!OwnerActor)
 	{
+		return;
+	}
+
+	if (!OwnerActor->HasAuthority())
+	{
+		if (bHeldInView && Carrier && Carrier->IsLocallyControlled())
+		{
+			PlaceAtHold();
+		}
 		return;
 	}
 
@@ -870,6 +961,8 @@ void UMurderAtMidnightInteractableComponent::OnRep_State()
 		}
 	}
 
+	const bool bFollowLocally = bHeldInView && Carrier && Carrier->IsLocallyControlled();
+	SetComponentTickEnabled(bFollowLocally);
 	ApplyVisual();
 }
 
@@ -881,4 +974,6 @@ void UMurderAtMidnightInteractableComponent::GetLifetimeReplicatedProps(TArray<F
 	DOREPLIFETIME(UMurderAtMidnightInteractableComponent, bOpen);
 	DOREPLIFETIME(UMurderAtMidnightInteractableComponent, bBloody);
 	DOREPLIFETIME(UMurderAtMidnightInteractableComponent, Carrier);
+	DOREPLIFETIME(UMurderAtMidnightInteractableComponent, bHeldInView);
+	DOREPLIFETIME(UMurderAtMidnightInteractableComponent, HoldRelativeRotation);
 }

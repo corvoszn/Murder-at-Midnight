@@ -35,7 +35,7 @@ The game is a 5 to 8 player first-person murder mystery in Unreal Engine 5. The 
 ## What does not exist
 
 - No online subsystem session. Joining uses a direct IP address.
-- No hunt, rats, or voice. Agendas are delivered and can be checked off. The evening result can end the match. A kill does not end the match unless only the killer is left.
+- No rats or voice. Agendas are delivered and can be checked off. The evening result can end the match. The Final Hunt starts when the killer and one living target are the only people left.
 - No code that writes a match result.
 - No manor map. The open level is the template range.
 
@@ -67,4 +67,4 @@ The refusal text is sent only to the player who pressed the key. The carried ite
 
 ## Next step
 
-The evening clock runs from 18:00 to 00:00. Midnight stops the clock and runs the final check. The hunt stays out until it is asked for. No rat yet.
+The evening clock runs from 18:00 to 00:00. Midnight stops the clock and runs the final check. The Final Hunt is in. No rat yet.

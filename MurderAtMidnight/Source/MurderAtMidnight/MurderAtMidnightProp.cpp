@@ -23,3 +23,17 @@ AMurderAtMidnightProp::AMurderAtMidnightProp()
 
 	Interactable = CreateDefaultSubobject<UMurderAtMidnightInteractableComponent>(TEXT("Interactable"));
 }
+
+void AMurderAtMidnightProp::PostNetReceiveLocationAndRotation()
+{
+	if (const UMurderAtMidnightInteractableComponent* Hold = GetInteractable())
+	{
+		const AMurderAtMidnightCharacter* Holder = Hold->GetCarrier();
+		if (Hold->IsHeldInView() && Holder && Holder->IsLocallyControlled())
+		{
+			return;
+		}
+	}
+
+	Super::PostNetReceiveLocationAndRotation();
+}

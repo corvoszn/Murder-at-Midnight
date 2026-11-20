@@ -18,6 +18,15 @@
 #include "Components/CapsuleComponent.h"
 #include "EngineUtils.h"
 #include "Widgets/Input/SVirtualJoystick.h"
+#include "MurderAtMidnightOnlineSubsystem.h"
+#include "EOSShared.h"
+#include "IOnlineSubsystemEOS.h"
+#include "OnlineSubsystem.h"
+#include "OnlineSubsystemUtils.h"
+#include "OnlineSubsystemEOSTypesPublic.h"
+#include "Interfaces/OnlineIdentityInterface.h"
+#include "VoiceChat.h"
+#include "TimerManager.h"
 
 namespace
 {
@@ -49,20 +58,53 @@ AMurderAtMidnightPlayerController::AMurderAtMidnightPlayerController()
 	PlayerCameraManagerClass = AMurderAtMidnightCameraManager::StaticClass();
 }
 
-void AMurderAtMidnightPlayerController::HostMatch()
+void AMurderAtMidnightPlayerController::HostMatch(const FString& Mode)
 {
-	if (IsLocalController())
+	if (!IsLocalController())
 	{
-		ClientTravel(TEXT("/Game/FirstPerson/Lvl_FirstPerson?listen"), TRAVEL_Absolute);
+		return;
+	}
+
+	if (Mode.Equals(TEXT("local"), ESearchCase::IgnoreCase))
+	{
+		ClientTravel(TEXT("/Game/FirstPerson/Lvl_FirstPerson?listen?bUseIPSockets"), TRAVEL_Absolute);
+		return;
+	}
+
+	if (UGameInstance* Instance = GetGameInstance())
+	{
+		if (UMurderAtMidnightOnlineSubsystem* Online = Instance->GetSubsystem<UMurderAtMidnightOnlineSubsystem>())
+		{
+			Online->Host();
+		}
 	}
 }
 
 void AMurderAtMidnightPlayerController::JoinMatch(const FString& Address)
 {
-	if (IsLocalController() && !Address.IsEmpty())
+	if (!IsLocalController())
+	{
+		return;
+	}
+
+	if (!Address.IsEmpty())
 	{
 		ClientTravel(Address, TRAVEL_Absolute);
+		return;
 	}
+
+	if (UGameInstance* Instance = GetGameInstance())
+	{
+		if (UMurderAtMidnightOnlineSubsystem* Online = Instance->GetSubsystem<UMurderAtMidnightOnlineSubsystem>())
+		{
+			Online->Join();
+		}
+	}
+}
+
+void AMurderAtMidnightPlayerController::ShowLocalStatus(const FString& Line)
+{
+	LastInteractMessage = Line;
 }
 
 void AMurderAtMidnightPlayerController::ReceivedPlayer()
@@ -73,6 +115,113 @@ void AMurderAtMidnightPlayerController::ReceivedPlayer()
 	if (IsLocalController())
 	{
 		ServerRequestPrivateAgenda();
+		GetWorldTimerManager().SetTimer(VoiceTimer, this, &AMurderAtMidnightPlayerController::UpdateProximityVoice, 0.1f, true);
+	}
+}
+
+void AMurderAtMidnightPlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	if (UWorld* World = GetWorld())
+	{
+		World->GetTimerManager().ClearTimer(VoiceTimer);
+	}
+	Super::EndPlay(EndPlayReason);
+}
+
+void AMurderAtMidnightPlayerController::UpdateProximityVoice()
+{
+	if (!IsLocalController())
+	{
+		return;
+	}
+
+	IOnlineSubsystem* Subsystem = Online::GetSubsystem(GetWorld(), TEXT("EOS"));
+	IOnlineIdentityPtr Identity = Subsystem ? Subsystem->GetIdentityInterface() : nullptr;
+	IOnlineSubsystemEOS* Eos = static_cast<IOnlineSubsystemEOS*>(Subsystem);
+	if (!Eos || !Identity.IsValid() || Identity->GetLoginStatus(0) != ELoginStatus::LoggedIn)
+	{
+		return;
+	}
+
+	const FUniqueNetIdPtr LocalId = Identity->GetUniquePlayerId(0);
+	if (!LocalId.IsValid() || LocalId->GetType() != FName(TEXT("EOS")))
+	{
+		return;
+	}
+
+	IVoiceChatUser* Voice = Eos->GetVoiceChatUserInterface(*LocalId);
+	if (!Voice)
+	{
+		return;
+	}
+
+	const IUniqueNetIdEOS* LocalEosId = static_cast<const IUniqueNetIdEOS*>(LocalId.Get());
+	const FString MyVoiceName = LexToString(LocalEosId->GetProductUserId());
+
+	const AMurderAtMidnightPlayerState* MyState = GetPlayerState<AMurderAtMidnightPlayerState>();
+	const bool bSilent = MyState && (MyState->LifeState == EMurderAtMidnightLifeState::Dead
+		|| MyState->LifeState == EMurderAtMidnightLifeState::Rat);
+	Voice->SetAudioInputDeviceMuted(bSilent);
+
+	const APawn* MyPawn = GetPawn();
+	const UWorld* World = GetWorld();
+	const AGameStateBase* GameState = World ? World->GetGameState() : nullptr;
+	TMap<FString, FVector> Locations;
+	if (GameState)
+	{
+		for (const APlayerState* OtherState : GameState->PlayerArray)
+		{
+			if (!OtherState || !OtherState->GetUniqueId().IsValid())
+			{
+				continue;
+			}
+
+			const FUniqueNetIdRepl& OtherId = OtherState->GetUniqueId();
+			if (OtherId.GetUniqueNetId()->GetType() != FName(TEXT("EOS")))
+			{
+				continue;
+			}
+
+			const APawn* OtherPawn = OtherState->GetPawn();
+			if (!OtherPawn)
+			{
+				continue;
+			}
+
+			const IUniqueNetIdEOS* OtherEosId = static_cast<const IUniqueNetIdEOS*>(OtherId.GetUniqueNetId().Get());
+			Locations.Add(LexToString(OtherEosId->GetProductUserId()), OtherPawn->GetActorLocation());
+		}
+	}
+
+	const float NearDistance = FMath::Min(VoiceFullVolumeDistance, VoiceHearDistance);
+	const float FarDistance = FMath::Max(VoiceFullVolumeDistance, VoiceHearDistance);
+	for (const FString& Channel : Voice->GetChannels())
+	{
+		for (const FString& Speaker : Voice->GetPlayersInChannel(Channel))
+		{
+			if (Speaker == MyVoiceName)
+			{
+				continue;
+			}
+
+			float Volume = 0.f;
+			if (MyPawn)
+			{
+				if (const FVector* SpeakerLocation = Locations.Find(Speaker))
+				{
+					const float Distance = FVector::Dist(MyPawn->GetActorLocation(), *SpeakerLocation);
+					Volume = FMath::GetMappedRangeValueClamped(
+						FVector2D(NearDistance, FarDistance), FVector2D(1.f, 0.f), Distance);
+				}
+			}
+
+			const float* Previous = LastVoiceVolumes.Find(Speaker);
+			if (!Previous || !FMath::IsNearlyEqual(*Previous, Volume, 0.05f))
+			{
+				Voice->SetPlayerVolume(Speaker, Volume);
+				LastVoiceVolumes.Add(Speaker, Volume);
+			}
+		}
 	}
 }
 
@@ -171,6 +320,49 @@ void AMurderAtMidnightPlayerController::RequestDrop()
 	FRotator ViewRotation = FRotator::ZeroRotator;
 	GetPlayerViewPoint(ViewStart, ViewRotation);
 	ServerRequestDrop(ViewRotation.Vector());
+}
+
+void AMurderAtMidnightPlayerController::RequestPrimaryPress()
+{
+	if (!IsLocalController())
+	{
+		return;
+	}
+
+	const AMurderAtMidnightGameState* MatchState = GetWorld() ? GetWorld()->GetGameState<AMurderAtMidnightGameState>() : nullptr;
+	if (MatchState && MatchState->bVoteOpen)
+	{
+		RequestCastVote();
+		return;
+	}
+
+	const AMurderAtMidnightCharacter* Self = Cast<AMurderAtMidnightCharacter>(GetPawn());
+	const UMurderAtMidnightInventoryComponent* Inventory = Self ? Self->GetInventory() : nullptr;
+	if (Inventory && Inventory->IsFull())
+	{
+		bLocalThrowCharging = true;
+		ServerRequestBeginThrow();
+		return;
+	}
+
+	FVector ViewStart = FVector::ZeroVector;
+	FRotator ViewRotation = FRotator::ZeroRotator;
+	GetPlayerViewPoint(ViewStart, ViewRotation);
+	ServerRequestGrab(ViewStart, ViewRotation.Vector());
+}
+
+void AMurderAtMidnightPlayerController::RequestPrimaryRelease()
+{
+	if (!IsLocalController() || !bLocalThrowCharging)
+	{
+		return;
+	}
+
+	bLocalThrowCharging = false;
+	FRotator ViewRotation = FRotator::ZeroRotator;
+	FVector ViewStart = FVector::ZeroVector;
+	GetPlayerViewPoint(ViewStart, ViewRotation);
+	ServerRequestThrow(ViewRotation.Vector());
 }
 
 void AMurderAtMidnightPlayerController::RequestKill()
@@ -331,9 +523,88 @@ void AMurderAtMidnightPlayerController::ServerRequestDrop_Implementation(FVector
 		}
 
 		Held->ServerDrop(Self, DropLocation, Message);
+		ThrowChargeStartedAt = -1.0f;
 	}
 
 	UE_LOG(LogMurderAtMidnight, Log, TEXT("%s tried to drop something: %s"), *GetName(), *Message);
+	ClientInteractMessage(Message);
+}
+
+void AMurderAtMidnightPlayerController::ServerRequestGrab_Implementation(FVector ViewStart, FVector ViewAim)
+{
+	AMurderAtMidnightCharacter* Self = Cast<AMurderAtMidnightCharacter>(GetPawn());
+	UWorld* World = GetWorld();
+	if (!Self || !World || IsDead())
+	{
+		ClientInteractMessage(TEXT("The server refused that."));
+		return;
+	}
+
+	if (UMurderAtMidnightInteractableComponent* Held = FindHeld(World, Self))
+	{
+		if (Held->IsHoldPending())
+		{
+			ClientInteractMessage(TEXT("It is not in your hand yet."));
+		}
+		return;
+	}
+
+	FHitResult Hit;
+	if (TraceAlongView(ViewStart, ViewAim, Hit) && Hit.GetActor())
+	{
+		if (UMurderAtMidnightInteractableComponent* Interactable = Hit.GetActor()->FindComponentByClass<UMurderAtMidnightInteractableComponent>())
+		{
+			if (Interactable->CanBeCarried())
+			{
+				FString Message;
+				Interactable->ServerInteract(Self, Message);
+				ClientInteractMessage(Message);
+				return;
+			}
+		}
+	}
+
+	ServerRequestKill_Implementation(ViewStart, ViewAim);
+}
+
+void AMurderAtMidnightPlayerController::ServerRequestBeginThrow_Implementation()
+{
+	UWorld* World = GetWorld();
+	AMurderAtMidnightCharacter* Self = Cast<AMurderAtMidnightCharacter>(GetPawn());
+	UMurderAtMidnightInteractableComponent* Held = World ? FindHeld(World, Self) : nullptr;
+	if (!World || !Held || Held->GetCarrier() != Self || Held->IsHoldPending())
+	{
+		ThrowChargeStartedAt = -1.0f;
+		return;
+	}
+
+	ThrowChargeStartedAt = World->GetTimeSeconds();
+}
+
+void AMurderAtMidnightPlayerController::ServerRequestThrow_Implementation(FVector ViewAim)
+{
+	UWorld* World = GetWorld();
+	AMurderAtMidnightCharacter* Self = Cast<AMurderAtMidnightCharacter>(GetPawn());
+	if (!World || !Self || IsDead() || ThrowChargeStartedAt < 0.0f)
+	{
+		ThrowChargeStartedAt = -1.0f;
+		return;
+	}
+
+	const float HoldSeconds = World->GetTimeSeconds() - ThrowChargeStartedAt;
+	ThrowChargeStartedAt = -1.0f;
+
+	UMurderAtMidnightInteractableComponent* Held = FindHeld(World, Self);
+	FString Message;
+	if (!Held)
+	{
+		Message = TEXT("You are not holding anything.");
+	}
+	else
+	{
+		Held->ServerThrow(Self, ViewAim, HoldSeconds, Message);
+	}
+
 	ClientInteractMessage(Message);
 }
 

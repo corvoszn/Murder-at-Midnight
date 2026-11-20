@@ -26,15 +26,19 @@ public:
 	/** Constructor */
 	AMurderAtMidnightPlayerController();
 
-	/** Reload this map as a listen server. Run from the local console: HostMatch */
+	/** Host an EOS lobby. HostMatch local keeps the address listen server. */
 	UFUNCTION(Exec)
-	void HostMatch();
+	void HostMatch(const FString& Mode = TEXT(""));
 
-	/** Connect to a listen server. Run from the local console: JoinMatch 127.0.0.1 */
+	/** Join the EOS lobby. JoinMatch 127.0.0.1 still connects by address. */
 	UFUNCTION(Exec)
-	void JoinMatch(const FString& Address);
+	void JoinMatch(const FString& Address = TEXT(""));
+
+	/** Line on this machine only. Used for host and join status. */
+	void ShowLocalStatus(const FString& Line);
 
 	virtual void ReceivedPlayer() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 	/** Local input. Asks the server to use whatever this player is looking at. */
 	void RequestInteract();
@@ -44,6 +48,12 @@ public:
 
 	/** Local input. Asks the server to attack the player being looked at. */
 	void RequestKill();
+
+	/** Local input. Grab with an empty hand. Start a throw when a hand is full. */
+	void RequestPrimaryPress();
+
+	/** Local input. Launch the held object. The time since the press is the throw distance. */
+	void RequestPrimaryRelease();
 
 	/** Local input. Asks the server to call a vote. */
 	void RequestVote();
@@ -57,6 +67,14 @@ public:
 	const FString& GetVoteChoice() const { return VoteChoice; }
 
 	const FString& GetLastInteractMessage() const { return LastInteractMessage; }
+
+	/** Full volume inside this distance. Centimetres. */
+	UPROPERTY(EditDefaultsOnly, Category = "Voice")
+	float VoiceFullVolumeDistance = 200.f;
+
+	/** Silent past this distance. Centimetres. */
+	UPROPERTY(EditDefaultsOnly, Category = "Voice")
+	float VoiceHearDistance = 1200.f;
 
 	bool HasAgenda() const { return !PrivateAgenda.IsEmpty(); }
 	bool IsAgendaComplete() const { return bAgendaComplete; }
@@ -126,6 +144,15 @@ protected:
 	void ServerRequestDrop(FVector ViewAim);
 
 	UFUNCTION(Server, Reliable)
+	void ServerRequestGrab(FVector ViewStart, FVector ViewAim);
+
+	UFUNCTION(Server, Reliable)
+	void ServerRequestBeginThrow();
+
+	UFUNCTION(Server, Reliable)
+	void ServerRequestThrow(FVector ViewAim);
+
+	UFUNCTION(Server, Reliable)
 	void ServerRequestKill(FVector ViewStart, FVector ViewAim);
 
 	UFUNCTION(Server, Reliable)
@@ -165,6 +192,16 @@ protected:
 
 	/** Not replicated. Filled by ClientReceiveVoteChoice. */
 	FString VoteChoice;
+
+	/** Not replicated. Server time when the throw click went down. -1 when no throw is charging. */
+	float ThrowChargeStartedAt = -1.0f;
+
+	bool bLocalThrowCharging = false;
+
+	FTimerHandle VoiceTimer;
+	TMap<FString, float> LastVoiceVolumes;
+
+	void UpdateProximityVoice();
 
 	/** Returns true if the player should use UMG touch controls */
 	bool ShouldUseTouchControls() const;

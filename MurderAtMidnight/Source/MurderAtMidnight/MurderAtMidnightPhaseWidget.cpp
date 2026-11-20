@@ -65,12 +65,20 @@ void UMurderAtMidnightPhaseWidget::RefreshText()
 	SetShown(DinnerText, Phase == EMurderAtMidnightPhase::Dinner);
 	SetShown(GardenText, Phase == EMurderAtMidnightPhase::Garden);
 	SetShown(ResolutionText, Phase == EMurderAtMidnightPhase::Resolution);
-	SetShown(HuntText, false);
+	SetShown(HuntText, Phase == EMurderAtMidnightPhase::Hunt);
 	SetShown(EndedText, Phase == EMurderAtMidnightPhase::Ended);
 
 	if (ClockText && MatchState)
 	{
-		ClockText->SetText(FText::FromString(MatchState->GetClockLabel()));
+		if (Phase == EMurderAtMidnightPhase::Hunt)
+		{
+			const int32 TotalSeconds = FMath::Max(0, FMath::CeilToInt(MatchState->GetPhaseSecondsRemaining()));
+			ClockText->SetText(FText::FromString(FString::Printf(TEXT("%d:%02d"), TotalSeconds / 60, TotalSeconds % 60)));
+		}
+		else
+		{
+			ClockText->SetText(FText::FromString(MatchState->GetClockLabel()));
+		}
 		SetShown(ClockText, Phase != EMurderAtMidnightPhase::WaitingForPlayers);
 	}
 

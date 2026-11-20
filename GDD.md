@@ -64,8 +64,8 @@ The match runs from 6 PM to midnight, in four periods.
 | Time | Event | Purpose |
 | --- | --- | --- |
 | 6 PM | Arrival | Introductions, exploration, first objectives, conversation. |
-| 8 PM | Dinner | The host brings people together. Guests may talk about their agendas. |
-| 10 PM | Garden Party | Outdoor space, exploration, and chances to be alone. |
+| 8 PM | Dinner | The host brings people together and gives the next private agenda to guests who finished the last one. Guests may talk about their agendas. |
+| 10 PM | Garden Party | Outdoor space, exploration, and chances to be alone. Guests who finished the Dinner agenda receive the next private agenda. |
 | 12 AM | End of Night | The deadline, the vote, and the result. |
 
 These are gatherings, not separate rounds. Players can walk between rooms the whole time. Missing dinner is allowed. A guest who skips it misses what was said there.
@@ -74,7 +74,7 @@ One event is different. Once per match the host calls a compulsory assignment, d
 
 ### 2.2 The Host
 
-The host is an NPC. The host welcomes the guests, hands out agendas in private at the start, announces the gatherings, prompts dinner conversation, calls people together for a vote, and once per match calls the living players to the hall for the compulsory assignment.
+The host is an NPC. The host welcomes the guests, hands out a private agenda at Arrival, Dinner, and the Garden Party, announces the gatherings, prompts dinner conversation, calls people together for a vote, and once per match calls the living players to the hall for the compulsory assignment. The host can also tell the manor, over the intercom, that a player is not co-operating. That announcement does not name anyone.
 
 The host does not judge who is guilty, invent new objectives, or play the match for the players. The assignment notes are written in advance. The host's lines can be written in advance.
 
@@ -90,7 +90,7 @@ A guest's note is a simple task and a place in the manor. It is not their person
 
 The server checks that the assigned task was completed. The time limit is a few minutes. It should be long enough to walk there and do the task, and short enough that people are spread through the house together.
 
-A living guest who has not finished when the time ends is expelled. They leave the match. They do not become a rat. Their agenda leaves the set. If they were a target, they come off the hit list. That is not a kill, and nobody is added in their place. If the expulsion leaves the killer and one guest, the hunt in section 5 starts. If it leaves only the killer, the killer wins.
+A living guest who has not finished when the time ends is expelled. They leave the match. They do not become a rat. Their agenda leaves the set. If they were a target, they come off the hit list. That is not a kill, and nobody is added in their place. If the expulsion leaves the killer and one guest, and that guest is still a target, the hunt in section 5 may start. If it leaves only the killer, the killer wins.
 
 The killer does not get a task, and cannot be expelled by this event. The killer's note is a clue to a tool or a weapon. The item is in a box with a lock timer. The server allows the box to be opened only during this assignment. When the time ends, the server refuses it. The clue is private to the killer. The box does not store the killer's id.
 
@@ -112,18 +112,20 @@ The killer has no personal agenda. Part of the role is inventing a believable re
 
 The killer wins only by finishing the target list and also surviving the social side of the evening. A finished list is not, by itself, a win. Section 4 and section 5 describe the exact win checks.
 
+If only the killer and one guest remain and that guest was never a target, the killer wins immediately. There is no Final Hunt and no midnight vote in that pair.
+
 ### 3.2 Guests
 
-Every other player is a guest. Each guest receives a private personal agenda.
+Every other player is a guest. Each guest receives a private agenda at Arrival, then another at Dinner and another at the Garden Party, once the agenda before it is finished.
 
 Guests can win in more than one way. Any one of these wins ends the match for the guests:
 
 - They vote the killer out, while three or more players are alive.
 - At midnight, with three or more players alive, at least one target is still alive.
 - Every personal agenda still in the match has been completed.
-- The final hunt ends with the last guest still alive. Section 5 describes the hunt.
+- The Final Hunt ends with the last target still alive. Section 5 describes when that hunt starts.
 
-Guests do not have to chase all of these at once. A guest may drop their own agenda to watch someone, protect a person, or help someone else.
+Guests do not have to chase all of these at once. A guest may set an agenda aside to watch someone, protect a person, or help someone else. That choice leaves the unfinished agenda in the set, so it blocks the collective win. The host can also announce that a player is not co-operating.
 
 ### 3.3 The Hit List
 
@@ -144,7 +146,7 @@ The list is sized so that killing every target leaves the killer and two guests 
 
 There is no rule that exactly three players must be alive at the end.
 
-The killer may also kill a guest who is not on the list. That death does not count as a target. It still takes time, makes noise, and can leave evidence. It can also remove a witness. The cost is the final hunt, described in section 5. Killing extra people can throw away a vote the killer might have survived by talking.
+The killer may also kill a guest who is not on the list. That death does not count as a target. It still takes time, makes noise, and can leave evidence. It can also remove a witness. Killing non-targets along the way can force the killer into the Final Hunt in section 5. That hunt is a last resort, not a clean plan. Killing extra people can also throw away a vote the killer might have survived by talking.
 
 Targets are assigned for the match. When a target leaves the game, the list gets shorter. It does not gain a new name. See section 9.
 
@@ -154,7 +156,7 @@ In a six-player match the cast is the killer, three targets, and two other guest
 
 The strongest plan is to kill every target and leave those two guests alive. Midnight is then a vote among those three living people. The killer wins that vote if the two guests do not both name the killer. A five-player match has the same shape with two targets.
 
-Killing a guest who was never a target is allowed. That death does not count, and nobody is added in their place. If it leaves only the killer and one guest, the Final Hunt in section 5 starts.
+Killing a guest who was never a target is allowed. That death does not count, and nobody is added in their place. If those kills leave only the killer and one guest, and that guest is still a target, the Final Hunt in section 5 may start. If the last guest is not a target, the hunt does not start and the killer wins immediately.
 
 ## 4. Voting
 
@@ -178,34 +180,45 @@ Players may also force the issue earlier, at a gathering. A successful vote ends
 
 ## 5. The Final Hunt
 
-The Final Hunt is the game's endgame. It shifts the evening from social deduction to a tense game of hide-and-seek between the killer and the final surviving guest.
+The Final Hunt is not the usual end of a match. It is a circumstantial last resort. The killer failed to isolate the targets, killed guests who were never on the list to stay hidden, and now has only one living guest left. That guest must still be on the hit list. The evening then shifts from social deduction to a tense hide-and-seek between the killer and that final target.
 
-This loop is written here. It is not in the playable build yet.
+This loop is in the playable build.
 
 ### 5.1 Trigger
 
-- The killer eliminates another guest, leaving only themselves and one living guest.
-- A disconnect that leaves the same pair starts the hunt the same way.
+The Final Hunt starts only when all of these are true:
+
+- The killer has not been voted out. A successful vote that names the killer already ended the match for the guests.
+- Only two people are alive: the killer and one guest.
+- That guest is still a target. Every other guest is gone. Non-target deaths do not count toward the list, but they are what usually creates this situation.
+- A death or a disconnect that leaves this exact pair can start the hunt. The disconnect rules in section 9 use the same check.
+
+When the hunt starts:
+
 - The host announces that only two living players remain, without revealing their identities.
 - Voting closes and the Final Hunt begins.
+
+If only the killer and one guest remain and that guest is not a target, the Final Hunt does not start. The killer wins immediately.
 
 ### 5.2 The Search
 
 - The game transitions into a one-versus-one survival scenario.
 - The manor becomes the hunting ground.
-- The killer must locate and eliminate the final guest.
-- The guest must avoid being found and survive until the timer expires.
+- The killer must locate and eliminate the final target before the hunt timer ends.
+- The target must avoid being found and survive until the timer expires.
 - Neither player has direct knowledge of the other's location.
+- The killer is on the clock. Catching the target should be hard. The manor should give the target real chances to hide, break line of sight, and slip away.
 
 ### 5.3 Gameplay
 
 The killer:
 
-- Searches the manor for the remaining guest.
+- Searches the manor for the remaining target.
 - Uses environmental sounds and observations to track them.
 - Must actively hunt rather than rely on the social deduction mechanics of the main evening.
+- Should not expect an easy finish. Cornering the target is meant to be challenging.
 
-The surviving guest:
+The surviving target:
 
 - Uses the manor's rooms, corridors, and alternative routes to evade the killer.
 - Can hide, misdirect, and use environmental interactions to create opportunities to escape.
@@ -213,11 +226,11 @@ The surviving guest:
 
 ### 5.4 Victory
 
-The killer wins if they find and eliminate the final surviving guest before the timer expires. If that guest was a remaining target, the kill also completes the list.
+The killer wins if they find and eliminate the final target before the timer expires. The kill completes the hit list.
 
-The guests win if the surviving guest remains alive until the Final Hunt timer expires. This is true even if that guest was never a target, and even if every target is already dead.
+The guests win if that target remains alive until the Final Hunt timer expires.
 
-The hunt clock lasts a few minutes, even if the deaths happened early in the evening. The length can be tuned in playtests. It should feel like a climax, not a second full match.
+The hunt clock lasts a few minutes, even if the deaths happened early in the evening. The length can be tuned in playtests. It should feel like a climax, not a second full match, and the killer should feel time pressure.
 
 Agendas stay active during the hunt. Rats, and the guest who is hiding, can still finish them. If every remaining agenda is completed before the catch, the guests win. The catch itself ends the match, so the agendas have to be finished first.
 
@@ -227,13 +240,43 @@ If the killer is the only living person left, the killer wins. There is no guest
 
 ### 6.1 Purpose
 
-Agendas are private goals. The host gives them to guests at arrival. The killer does not get one.
+Agendas are private goals. The killer does not get one.
 
-An agenda gives a guest a reason to visit a place, handle an object, or learn something. It is also one of the ways the guests can win, if every remaining agenda is finished.
+An agenda gives a guest a reason to visit a place, handle an object, or learn something. Finishing it serves two things. It moves the guests toward the collective win, and it gives that guest a true reason to have been somewhere and to have handled something. Other players can ask about that. The guest can answer, dodge, or lie.
 
-Players may ignore their agendas. The vote and the clock do not depend on them.
+The vote and the clock do not wait on an agenda. A guest can set the current agenda aside to watch someone. The unfinished agenda stays in the set, so the collective win stays blocked. The group is also told that someone is not taking part.
 
-### 6.2 What an Agenda Contains
+### 6.2 One Agenda Each Stage
+
+The host gives each living guest one private agenda at the start of a stage.
+
+| Stage | Agenda |
+| --- | --- |
+| Arrival | The first agenda. |
+| Dinner | The next agenda, and only if the Arrival agenda is finished. |
+| Garden Party | The next agenda, and only if the Dinner agenda is finished. |
+
+A guest who is still holding an unfinished agenda does not receive the new one. The old one stays private and unfinished. The server is the only judge of that. Saying it is done does not complete it.
+
+Midnight does not hand out an agenda. The Final Hunt does not hand out an agenda. A guest keeps the agenda they already hold, and can still finish it.
+
+### 6.3 Refusing an Agenda
+
+A guest may leave an agenda unfinished on purpose, to spend the time watching the group and guessing at the killer.
+
+When a guest does that, the host announces over the intercom that a player in the group is not co-operating with the game. The announcement does not give a name. The group has to decide who it fits. That is the social cost. It can fall on an innocent guest, or on the killer, who has no agenda and has been inventing one.
+
+The announcement does not expel anyone, and it does not start a vote by itself.
+
+### 6.4 Agenda Buffer System
+
+TBD.
+
+The buffer is there so a guest cannot refuse every agenda for the whole night. Its purpose is to force that guest to finish the agenda they currently hold before the agenda two stages ahead is given out. The current agenda has to be done before the one after the next can be handed over.
+
+How the force works, what the host says if it is still unfinished, and how this sits with section 6.2 are not decided yet.
+
+### 6.5 What an Agenda Contains
 
 Agendas are data, checked by the server. A player cannot win one by saying it is done.
 
@@ -253,29 +296,31 @@ Agendas that need a score, an endorsement, or a formal social system are out. Th
 
 Two guests can want the same object for different reasons. One guest can need a paper that another guest wants to hide. Those overlaps are where deals, theft, and lies come from.
 
-### 6.3 Collective Victory
+### 6.6 Collective Victory
 
-Every guest agenda still in the match must be finished. When the last one is finished, the guests win immediately.
+Every guest agenda that has been given out, and is still in the match, must be finished. An agenda that has not been given yet is not in that set. When the last given agenda is finished, the guests win immediately.
 
 The game tells each player about their own agenda in private. It does not show a public list of who is done. A public list would make the killer obvious, because the killer has no agenda. Players may claim they are finished. The game does not confirm that claim out loud.
 
 Living guests do not need to know whether the rats are going to finish. They can play for the vote and the clock. If the agendas all get done, the match ends on its own.
 
-### 6.4 Rats and Agendas
+### 6.7 Rats and Agendas
 
-Death does not delete an agenda. A guest who becomes a rat still has to finish theirs, if they are still playing, for the collective win to happen.
+Death does not delete an agenda. A guest who becomes a rat keeps the agenda they were already holding. A new stage does not give the rat another one. The held agenda still has to be finished, if they are still playing, for the collective win to happen.
 
 Each agenda needs a rat version: one short action in the world, with a private marker that only that rat can see. A rat might move a small object, reach a hidden spot, or trip a mechanism. The action should be the same goal, done in a smaller way.
 
 A rat who is still playing may ignore the agenda and spend the time helping the other guests, or bothering the killer. That choice can stop the agenda victory. It does not stop the vote, midnight, or the hunt.
 
-### 6.5 Leaving and Going Idle
+### 6.8 Leaving and Going Idle
 
 If a player disconnects, they are removed. Their agenda leaves the set. A quitter cannot freeze the match.
 
 If a rat does nothing for a couple of minutes, they get a private warning. If they still do nothing, their agenda leaves the set. Walking around counts as being present.
 
-A rat who is present and simply refuses to finish stays in the set. That is a real choice. It blocks the agenda win only.
+A living guest who refuses to finish stays in the set. The host uses the intercom in section 6.3. The refusal blocks the agenda win, and it gives the group something to argue about.
+
+A rat who is present and simply refuses to finish stays in the set. That choice blocks the agenda win only.
 
 ## 7. Dinner and Talking
 
@@ -343,7 +388,9 @@ If a target disconnects:
 
 If a guest who is not a target disconnects, they are removed, and their agenda leaves the set. The hit list does not change.
 
-If a disconnect leaves only the killer and one guest, the hunt in section 5 starts.
+If a disconnect leaves only the killer and one guest, and that guest is still a target, the hunt in section 5 may start.
+
+If a disconnect leaves only the killer and one guest, and that guest was never a target, the killer wins immediately.
 
 If the killer disconnects, the guests win.
 

@@ -1,12 +1,14 @@
 # Hold and drop
 
-Picking an object up puts it on a fixed point in front of the camera. Looking and walking move that point, and the object stays there. It does not swing. Collision stays on, so it stops against walls and pushes other loose objects.
+Picking an object up puts it on a fixed point in front of the camera. Looking and walking move that point, and the object stays there. It does not swing. The player holding it places that point from their own view, so a client walk does not wait on the host's copy of the position. Collision stays on, so it stops against walls and pushes other loose objects.
 
 Letting go leaves it where it is. It does not keep your walking speed. Walking over a dropped key or weapon does not push it through the floor. Those objects do not collide with players. They still collide with the floor, walls, and other loose objects. Doors and cabinets still stop a player.
 
 Weight does not change the hold. It changes how long the pickup takes, and how fast you walk while carrying it. An object with no mass set picks up immediately and does not slow you.
 
-F picks up. G lets go.
+F picks up and uses a door or cabinet. Click picks up a loose object and keeps it in front of you. Another click throws it. A short click is the short throw. Holding the click, up to Max Throw Hold Seconds, is the long throw. A lighter object leaves the hand faster. A heavier one leaves slower. G lets go without a throw.
+
+The throw speeds and the hold times are on the character, under Throw. Light Throw Speed is 1600. Heavy Throw Speed is 450, reached at Heavy Mass Kg. Min Throw Scale is 0.35, so the shortest throw is about a third of that object's full throw.
 
 ## Where to change the numbers
 
@@ -40,7 +42,7 @@ A 10 kg object takes about 0.6 seconds to pick up and slows you to about three q
 
 `UMurderAtMidnightInteractableComponent` places, drops, and keeps the object off the player. `AMurderAtMidnightKey` and `AMurderAtMidnightWeapon` are the test objects. The mesh is the root. The carry numbers are on `AMurderAtMidnightCharacter`.
 
-The server decides the pickup and the drop. Clients ask.
+The server decides the pickup, the drop, and the throw. Clients ask. A thrown object does not remember who threw it.
 
 ## Leave this alone unless asked
 

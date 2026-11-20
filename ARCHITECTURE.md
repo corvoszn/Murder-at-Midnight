@@ -62,7 +62,7 @@ flowchart TD
 
 Lives on each machine for the whole time the game is open. It survives map travel. It is not replicated.
 
-It owns local things: the player's settings, and the act of hosting or joining a session.
+It owns local things: the player's settings, and the act of hosting or joining a session. `UMurderAtMidnightOnlineSubsystem` on this object signs the machine in and hosts or joins the lobby.
 
 It does not own the match. It must not store who the killer is, the target list, or any agenda. Those facts belong to the server for one match, and this object would keep them on the wrong machine.
 
@@ -220,9 +220,10 @@ Phases:
 3. Dinner.
 4. Garden.
 5. Resolution, at midnight. The clock stops at 00:00. This is the final check, not another period of play.
-6. Ended.
+6. Hunt, when a death or a disconnect leaves the killer and one guest, and that guest is still a target.
+7. Ended.
 
-The hunt is written in GDD section 5. It is not in this build.
+The hunt is in this build. It starts only for that pair. If the last guest was never a target, the killer wins and the hunt does not start.
 
 Arrival, dinner, and garden are gatherings. Players can keep walking. The phase tells the host what to announce and tells the server when a vote may be called. Missing a gathering has no mechanical penalty.
 
@@ -231,8 +232,10 @@ The server checks wins in this order:
 1. Every agenda still in the match is complete. The guests win.
 2. A vote is open and a majority of living players name the killer. The guests win. Any other ballot changes nothing and closes voting until the next gathering.
 3. At midnight, with three or more living players: a living target means the guests win. If every target is already dead, the server opens the vote. The killer wins only if that vote does not name them. Fewer than three living players do not take that vote.
-4. If only the killer remains, the killer wins.
-5. If the killer disconnects, the guests win.
+4. If a death or a disconnect leaves the killer and one guest, and that guest is still a target, the hunt starts. The guests win if the target is alive when the hunt timer ends. The killer wins by catching that target first.
+5. If that last guest is not a target, the killer wins immediately.
+6. If only the killer remains, the killer wins.
+7. If the killer disconnects, the guests win.
 
 A target who disconnects is removed from the list. That is not a kill. No new target is added. The list is one name shorter.
 
@@ -272,7 +275,7 @@ These are not extra engines. Each one is a small C++ type we will need once, the
 5. Agendas. Data assets plus server-side progress on the GameMode. Completion is a private message to the owner.
 6. Player records. The public half is the PlayerState. The private half stays on the GameMode and is copied to one controller.
 
-Voice is separate. Unreal does not ship proximity voice. The first sessions need a known voice plugin. That choice can wait until movement and objects exist. It does not change the class split above.
+Voice uses Epic Online Services. The machine signs in with a device id, then a lobby holds up to eight players. That lobby room carries the voice. Each machine turns the other players down by distance: full volume within 2 metres, silent past 12 metres. A dead player or a rat sends no voice. The killer id, the target list, and agendas stay off the voice channel.
 
 ## Build order
 
@@ -286,7 +289,7 @@ Each step is usable before the next one starts. Gameplay from the GDD waits unti
 6. Agendas, including the short rat action, still checked on the server.
 7. The evening schedule, dinner announcements, the vote, and the hunt.
 8. The rat pawn and possession.
-9. Proximity voice, once the session plugin is chosen.
+9. Proximity voice on the EOS lobby. Host and join for two computers are in the project. A second copy on the same PC still uses the local address.
 
 Steps 5 through 9 are the GDD's build order. They do not start in the architecture pass.
 

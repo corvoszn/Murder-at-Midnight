@@ -33,6 +33,9 @@ public:
 
 	bool IsCarried() const { return bCarried; }
 	bool IsOpen() const { return bOpen; }
+	bool IsHoldPending() const { return bHoldPending; }
+	bool IsHeldInView() const { return bHeldInView; }
+	bool CanBeCarried() const { return Kind == EMurderAtMidnightInteractKind::Pickup || Kind == EMurderAtMidnightInteractKind::Weapon; }
 	bool IsWeapon() const { return Kind == EMurderAtMidnightInteractKind::Weapon; }
 	bool IsBloody() const { return bBloody; }
 	FName GetItemId() const { return ItemId; }
@@ -43,6 +46,9 @@ public:
 
 	/** Server only. Put a carried pickup back in the world. */
 	bool ServerDrop(AMurderAtMidnightCharacter* Who, const FVector& WorldLocation, FString& OutMessage);
+
+	/** Server only. Launch a carried pickup along the aim. Speed comes from its weight and how long the click was held. */
+	bool ServerThrow(AMurderAtMidnightCharacter* Who, const FVector& AimDirection, float HoldSeconds, FString& OutMessage);
 
 	/** Server only. Move a carried pickup into another person's hands. */
 	bool ServerGive(AMurderAtMidnightCharacter* Giver, AMurderAtMidnightCharacter* Receiver, FString& OutMessage);
@@ -95,11 +101,20 @@ private:
 	UPROPERTY(ReplicatedUsing = OnRep_State)
 	TObjectPtr<AMurderAtMidnightCharacter> Carrier;
 
+	/** True once the object is in the hold pose. False during the pickup delay. Everyone receives this. */
+	UPROPERTY(ReplicatedUsing = OnRep_State)
+	bool bHeldInView = false;
+
+	/** Rotation relative to the holder's view, captured when the hold starts. Everyone receives this. */
+	UPROPERTY(Replicated)
+	FRotator HoldRelativeRotation = FRotator::ZeroRotator;
+
 	void AttachToCarrier();
 	void ReleaseAt(const FVector& WorldLocation);
 	void ApplyVisual() const;
 	void StartHold(AMurderAtMidnightCharacter* Who);
 	void StopHold(AMurderAtMidnightCharacter* Who);
+	void ReleaseThrown(AMurderAtMidnightCharacter* Who, const FVector& Velocity);
 	void PlaceAtHold();
 	void MoveClearOfWorld(const FVector& Desired);
 	void LeaveTheHolder(AMurderAtMidnightCharacter* Who);
@@ -122,7 +137,6 @@ private:
 	float HoldPendingUntil = 0.0f;
 	float CarryMass = 0.0f;
 	bool bRestorePhysicsOnDrop = false;
-	FRotator HoldRelativeRotation = FRotator::ZeroRotator;
 
 	/** Parts whose pawn collision was turned off for the hold, so it can be put back. */
 	TArray<TObjectPtr<UPrimitiveComponent>> IgnoredParts;

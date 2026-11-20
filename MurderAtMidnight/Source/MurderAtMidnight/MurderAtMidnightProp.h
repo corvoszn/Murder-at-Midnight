@@ -18,6 +18,8 @@ class MURDERATMIDNIGHT_API AMurderAtMidnightProp : public AActor
 public:
 	AMurderAtMidnightProp();
 
+	virtual void PostNetReceiveLocationAndRotation() override;
+
 	UMurderAtMidnightInteractableComponent* GetInteractable() const { return Interactable; }
 
 protected:

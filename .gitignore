@@ -6,3 +6,11 @@ MurderAtMidnight/DerivedDataCache/
 MurderAtMidnight/.vs/
 MurderAtMidnight/*.sln
 MurderAtMidnight/*.slnx
+MurderAtMidnight/Plugins/**/Binaries/
+MurderAtMidnight/Plugins/**/Intermediate/
+
+*.zip
+*.blend1
+
+# EOS product credentials. Loaded by the engine, never committed.
+MurderAtMidnight/Config/Windows/WindowsEngine.ini

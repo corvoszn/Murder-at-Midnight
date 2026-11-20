@@ -43,7 +43,7 @@ struct FMurderAtMidnightAssignedAgenda
 /**
  *  Server-only match authority for a first person game.
  *  This step advances the public phase and clock, keeps each player's agenda, and assigns roles.
- *  It also checks the evening result. There is no hunt in this build.
+ *  It also checks the evening result and the Final Hunt.
  *  Public facts are written onto the GameState. Private facts go to one PlayerController.
  */
 UCLASS(abstract)
@@ -59,6 +59,7 @@ public:
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 	virtual void PreLogin(const FString& Options, const FString& Address, const FUniqueNetIdRepl& UniqueId, FString& ErrorMessage) override;
 	virtual void PostLogin(APlayerController* NewPlayer) override;
+	virtual void Logout(AController* Exiting) override;
 
 	/** Server only. Assigns an agenda if this player does not have one, then tells that controller. */
 	void SendPrivateAgenda(AMurderAtMidnightPlayerController* Controller);
@@ -96,6 +97,10 @@ protected:
 	/** Real-time length of the Garden party, in seconds. Midnight is checked when this ends. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Match", meta = (ClampMin = "1.0"))
 	float GardenDurationSeconds = 120.0f;
+
+	/** Real-time length of the Final Hunt, in seconds. The target wins if this runs out. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Match", meta = (ClampMin = "1.0"))
+	float HuntDurationSeconds = 90.0f;
 
 	/** Players allowed in one match, including the killer. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Match", meta = (ClampMin = "1", ClampMax = "8"))
@@ -136,6 +141,10 @@ private:
 
 	void StartPhase(EMurderAtMidnightPhase NewPhase);
 	void AdvancePhase();
+	void OnHuntTimer();
+	void StartHunt();
+	void ConsiderLastPair(const AMurderAtMidnightPlayerController* AlreadyGone = nullptr);
+	bool IsLivingTarget(const AMurderAtMidnightPlayerController* Controller) const;
 	void CheckEveningResult();
 	void CheckAgendaWin();
 	void OpenVote(bool bAtMidnight);

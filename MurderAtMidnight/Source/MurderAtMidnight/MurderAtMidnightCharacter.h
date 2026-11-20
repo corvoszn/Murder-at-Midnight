@@ -84,6 +84,8 @@ protected:
 	void InteractPressed();
 	void DropPressed();
 	void KillPressed();
+	void PrimaryClickPressed();
+	void PrimaryClickReleased();
 	void VotePressed();
 	void SkipPhasePressed();
 
@@ -114,6 +116,9 @@ public:
 	/** Seconds before this mass is in the player's hand. */
 	float GetPickupDelay(float MassKg) const;
 
+	/** Launch speed for this mass after the click was held for HoldSeconds. The server calls this. */
+	float GetThrowSpeed(float MassKg, float HoldSeconds) const;
+
 	/** Slow walking while this mass is being carried. The server calls this. */
 	void ApplyCarryMass(float MassKg);
 
@@ -136,6 +141,26 @@ private:
 	/** Pickup time at Heavy Mass Kg, in seconds. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Carry", meta = (AllowPrivateAccess = "true", ClampMin = "0"))
 	float HeavyPickupSeconds = 1.2f;
+
+	/** Throw speed for a weightless object, in centimetres per second. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Throw", meta = (AllowPrivateAccess = "true", ClampMin = "0"))
+	float LightThrowSpeed = 1600.0f;
+
+	/** Throw speed at Heavy Mass Kg, in centimetres per second. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Throw", meta = (AllowPrivateAccess = "true", ClampMin = "0"))
+	float HeavyThrowSpeed = 450.0f;
+
+	/** A click this short, or shorter, is the shortest throw. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Throw", meta = (AllowPrivateAccess = "true", ClampMin = "0"))
+	float MinThrowHoldSeconds = 0.0f;
+
+	/** Holding the click this long is the farthest throw. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Throw", meta = (AllowPrivateAccess = "true", ClampMin = "0.05"))
+	float MaxThrowHoldSeconds = 0.85f;
+
+	/** Shortest throw distance, as a fraction of the speed for that weight. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Throw", meta = (AllowPrivateAccess = "true", ClampMin = "0.05", ClampMax = "1"))
+	float MinThrowScale = 0.35f;
 
 	float SavedMaxWalkSpeed = 0.0f;
 	bool bCarrySlowApplied = false;

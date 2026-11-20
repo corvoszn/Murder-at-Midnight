@@ -146,6 +146,41 @@ void AMurderAtMidnightGameMode::PreLogin(const FString& Options, const FString& 
 	}
 }
 
+void AMurderAtMidnightGameMode::Logout(AController* Exiting)
+{
+	UWorld* World = GetWorld();
+	AMurderAtMidnightGameState* MatchState = GetGameState<AMurderAtMidnightGameState>();
+	AMurderAtMidnightPlayerController* ExitingPlayer = Cast<AMurderAtMidnightPlayerController>(Exiting);
+	const bool bMatchOpen = HasAuthority()
+		&& bRolesAssigned
+		&& World
+		&& !World->bIsTearingDown
+		&& MatchState
+		&& MatchState->MatchResult == EMurderAtMidnightMatchResult::None
+		&& ExitingPlayer;
+
+	if (bMatchOpen)
+	{
+		Targets.RemoveAll([ExitingPlayer](const TObjectPtr<AMurderAtMidnightPlayerController>& Target)
+		{
+			return !Target || Target == ExitingPlayer;
+		});
+		AssignedAgendas.Remove(ExitingPlayer);
+
+		if (ExitingPlayer == Killer)
+		{
+			EndMatch(EMurderAtMidnightMatchResult::GuestsWin, TEXT("The killer is gone."));
+		}
+		else
+		{
+			CheckAgendaWin();
+			ConsiderLastPair(ExitingPlayer);
+		}
+	}
+
+	Super::Logout(Exiting);
+}
+
 void AMurderAtMidnightGameMode::PostLogin(APlayerController* NewPlayer)
 {
 	Super::PostLogin(NewPlayer);
@@ -344,7 +379,15 @@ bool AMurderAtMidnightGameMode::TryMurder(AMurderAtMidnightPlayerController* Att
 	UE_LOG(LogMurderAtMidnight, Log, TEXT("%s is dead."), *VictimName);
 	if (CountLiving() == 1 && IsAlive(Killer))
 	{
-		EndMatch(EMurderAtMidnightMatchResult::KillerWins, TEXT("Only the killer is left."));
+		const AMurderAtMidnightGameState* MatchState = GetGameState<AMurderAtMidnightGameState>();
+		const bool bDuringHunt = MatchState && MatchState->Phase == EMurderAtMidnightPhase::Hunt;
+		EndMatch(
+			EMurderAtMidnightMatchResult::KillerWins,
+			bDuringHunt ? TEXT("The killer caught the last target.") : TEXT("Only the killer is left."));
+	}
+	else
+	{
+		ConsiderLastPair();
 	}
 	return true;
 }
@@ -739,6 +782,12 @@ bool AMurderAtMidnightGameMode::TryCallVote(AMurderAtMidnightPlayerController* W
 		return false;
 	}
 
+	if (MatchState->Phase == EMurderAtMidnightPhase::Hunt)
+	{
+		OutMessage = TEXT("Voting is closed.");
+		return false;
+	}
+
 	if (MatchState->Phase == EMurderAtMidnightPhase::Resolution)
 	{
 		OutMessage = TEXT("The midnight vote cannot be called.");
@@ -844,7 +893,11 @@ void AMurderAtMidnightGameMode::StartPhase(EMurderAtMidnightPhase NewPhase)
 	UE_LOG(LogMurderAtMidnight, Log, TEXT("Phase is now %d for %.0f seconds."), static_cast<int32>(NewPhase), Duration);
 
 	World->GetTimerManager().ClearTimer(PhaseTimer);
-	if (Duration > 0.0f)
+	if (NewPhase == EMurderAtMidnightPhase::Hunt && Duration > 0.0f)
+	{
+		World->GetTimerManager().SetTimer(PhaseTimer, this, &AMurderAtMidnightGameMode::OnHuntTimer, Duration, false);
+	}
+	else if (Duration > 0.0f)
 	{
 		World->GetTimerManager().SetTimer(PhaseTimer, this, &AMurderAtMidnightGameMode::AdvancePhase, Duration, false);
 	}
@@ -853,6 +906,86 @@ void AMurderAtMidnightGameMode::StartPhase(EMurderAtMidnightPhase NewPhase)
 	{
 		CheckEveningResult();
 	}
+}
+
+void AMurderAtMidnightGameMode::OnHuntTimer()
+{
+	EndMatch(EMurderAtMidnightMatchResult::GuestsWin, TEXT("The last target survived."));
+}
+
+void AMurderAtMidnightGameMode::StartHunt()
+{
+	AMurderAtMidnightGameState* MatchState = GetGameState<AMurderAtMidnightGameState>();
+	if (!HasAuthority() || !MatchState || MatchState->MatchResult != EMurderAtMidnightMatchResult::None)
+	{
+		return;
+	}
+
+	if (MatchState->Phase == EMurderAtMidnightPhase::Hunt)
+	{
+		return;
+	}
+
+	const int32 EveningMinute = MatchState->GetClockMinute();
+	StartPhase(EMurderAtMidnightPhase::Hunt);
+	MatchState->FrozenClockMinute = EveningMinute;
+	MatchState->ForceNetUpdate();
+
+	TArray<AMurderAtMidnightPlayerController*> Players;
+	GatherPlayers(Players);
+	for (AMurderAtMidnightPlayerController* Player : Players)
+	{
+		if (Player)
+		{
+			Player->ClientReceiveVoteChoice(FString());
+		}
+	}
+
+	TellPlayers(TEXT("Only two living players remain."));
+}
+
+void AMurderAtMidnightGameMode::ConsiderLastPair(const AMurderAtMidnightPlayerController* AlreadyGone)
+{
+	const AMurderAtMidnightGameState* MatchState = GetGameState<AMurderAtMidnightGameState>();
+	if (!HasAuthority() || !bRolesAssigned || !MatchState || MatchState->MatchResult != EMurderAtMidnightMatchResult::None)
+	{
+		return;
+	}
+
+	if (MatchState->Phase == EMurderAtMidnightPhase::Hunt)
+	{
+		return;
+	}
+
+	TArray<AMurderAtMidnightPlayerController*> Players;
+	GatherPlayers(Players);
+	TArray<AMurderAtMidnightPlayerController*> Living;
+	for (AMurderAtMidnightPlayerController* Player : Players)
+	{
+		if (Player != AlreadyGone && IsAlive(Player))
+		{
+			Living.Add(Player);
+		}
+	}
+
+	if (Living.Num() != 2 || !Living.Contains(Killer))
+	{
+		return;
+	}
+
+	AMurderAtMidnightPlayerController* Guest = Living[0] == Killer ? Living[1] : Living[0];
+	if (IsLivingTarget(Guest))
+	{
+		StartHunt();
+		return;
+	}
+
+	EndMatch(EMurderAtMidnightMatchResult::KillerWins, TEXT("The last guest was never a target."));
+}
+
+bool AMurderAtMidnightGameMode::IsLivingTarget(const AMurderAtMidnightPlayerController* Controller) const
+{
+	return IsAlive(Controller) && Targets.Contains(Controller);
 }
 
 void AMurderAtMidnightGameMode::SkipToNextPhase()
@@ -902,6 +1035,7 @@ float AMurderAtMidnightGameMode::GetPhaseDuration(EMurderAtMidnightPhase Phase) 
 	case EMurderAtMidnightPhase::Arrival: return ArrivalDurationSeconds;
 	case EMurderAtMidnightPhase::Dinner: return DinnerDurationSeconds;
 	case EMurderAtMidnightPhase::Garden: return GardenDurationSeconds;
+	case EMurderAtMidnightPhase::Hunt: return HuntDurationSeconds;
 	default: return 0.0f;
 	}
 }

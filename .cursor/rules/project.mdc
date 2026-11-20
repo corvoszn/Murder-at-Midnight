@@ -7,7 +7,7 @@ alwaysApply: true
 
 Read `GDD.md`, `ARCHITECTURE.md`, and `CURSOR_RULES.md` before changing systems. System notes live in `Systems/`. Read the note for the system you are changing. Add a new note only when the user asks for one.
 
-The Unreal project already exists at `MurderAtMidnight/`. Do not create a second project. Roles, private agendas, a server-checked kill, and the evening result are in place. Do not implement the hunt or the rat until the user asks for that build step.
+The Unreal project already exists at `MurderAtMidnight/`. Do not create a second project. Roles, private agendas, a server-checked kill, the evening result, and the Final Hunt are in place. Do not implement the rat until the user asks for that build step.
 
 The server decides match changes. Client calls are requests.
 
